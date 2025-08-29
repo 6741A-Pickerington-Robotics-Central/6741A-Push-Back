@@ -509,6 +509,7 @@ void selector() {
 }
 
 void update_screen(int update_mode) {
+  BrainScreen brainscreen;
   if (screenUpdating) return; 
   screenUpdating = true; // Prevent multiple updates at once
   switch (screen) {
@@ -519,7 +520,7 @@ void update_screen(int update_mode) {
           // Auton Bar
           set("fill","bg bar"); // Draw background bar
           //pros::screen::fill_rect(0, 0, 480, 50); // Fill the top bar with the background color
-          screen.draw_rect(0, 0, 480, 50); // Draw a rectangle in the middle for the auton name
+          brainscreen.draw_rect(0, 0, 480, 50); // Draw a rectangle in the middle for the auton name
           set("pen","text bar"); // Set text color and print "Auton:"
           pros::screen::print(pros::E_TEXT_LARGE, 0, 10, "Auton:");
           if (selectedauton >= 0 && selectedauton < autonCount) { // Determine which auton is selected and print its name
