@@ -70,12 +70,12 @@ lemlib::Chassis chassis(drivetrain, linearController, angularController, sensors
 pros::Motor Intake1(7, pros::v5::MotorGears::green);  // 3 chain/lower
 pros::Motor Intake2(4, pros::v5::MotorGears::green);  // lower roller
 pros::Motor Intake3(1, pros::v5::MotorGears::green);  // upper roller
-pros::Motor Intake4(21, pros::v5::MotorGears::green);  // 2 chain/top
+pros::Motor Intake4(10, pros::v5::MotorGears::green);  // 2 chain/top
 
 
 // Digital outputs
 pros::adi::DigitalOut Weedwacker('A');
-pros::adi::DigitalOut Kicker('B');
+pros::adi::DigitalOut redirect('B');
 bool weedwackerState = false; // State of the weedwacker
 int weedwackercooldown = 0; // Cooldown timer for weedwacker toggle
 
@@ -150,20 +150,30 @@ void autonomous() {
 void opcontrol() {
     while (true) {
         // Get joystick positions
-        int leftY = controller.get_analog(pros::E_CONTROLLER_ANALOG_LEFT_Y);
-        int rightX = controller.get_analog(pros::E_CONTROLLER_ANALOG_RIGHT_Y);
+        int leftY = controller.get_analog(pros::E_CONTROLLER_ANALOG_RIGHT_Y);
+        int rightX = controller.get_analog(pros::E_CONTROLLER_ANALOG_LEFT_Y);
         chassis.tank(leftY, rightX);
         // Intake Controls     NEED TO BE MORE COMPLEX
         if (controller.get_digital(pros::E_CONTROLLER_DIGITAL_B)) {
             Intake1.move_velocity(-200);
+            //Intake2.move_velocity(200);
+            Intake3.move_velocity(-200);
+            Intake4.move_velocity(200);
+        } else if (controller.get_digital(pros::E_CONTROLLER_DIGITAL_Y)) {
+            Intake1.move_velocity(-200);
+            Intake2.move_velocity(200);
+            Intake3.move_velocity(-200);
+            Intake4.move_velocity(200);
+        } else if (controller.get_digital(pros::E_CONTROLLER_DIGITAL_DOWN)) {
+            Intake1.move_velocity(-200);
             Intake2.move_velocity(200);
             Intake3.move_velocity(-200);
             Intake4.move_velocity(-200);
-        } else if (controller.get_digital(pros::E_CONTROLLER_DIGITAL_Y)) {
-            Intake1.move_velocity(100);
-            Intake2.move_velocity(-100);
-            Intake3.move_velocity(100);
-            Intake4.move_velocity(100);
+        } else if (controller.get_digital(pros::E_CONTROLLER_DIGITAL_LEFT)) {
+            Intake1.move_velocity(200);
+            Intake2.move_velocity(200);
+            Intake3.move_velocity(200);
+            Intake4.move_velocity(-200);
         } else {
             Intake1.move_velocity(0);
             Intake2.move_velocity(0);
@@ -184,10 +194,10 @@ void opcontrol() {
         
         // ____ Controls
         if (controller.get_digital(pros::E_CONTROLLER_DIGITAL_R1)) {
-            //Kicker.set_value(1); // Engage kicker
+            redirect.set_value(1); // Top goal
         }
         if (controller.get_digital(pros::E_CONTROLLER_DIGITAL_R2)) {
-            //Kicker.set_value(0); // Stop kicker
+            redirect.set_value(0); // Hopper
         }
         pros::delay(10); // delay to save resources
     }

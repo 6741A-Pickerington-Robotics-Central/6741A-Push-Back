@@ -508,23 +508,23 @@ void selector() {
     }
 }
 
-button Backbtn(0, 0, 50, 32, "<", 0x303030, 0xFFFFFF,{
-    []() {
-        if (screen == 2) {
-            screen = 1;
-            update_screen(0);
-        } else if (screen == 3) {
-            screen = 2;
-            update_screen(0);
-        } else if (screen == 4) {
-            screen = 2;
-            update_screen(0);
-        }
-    }
-});
+//button Backbtn(0, 0, 50, 32, "<", 0x303030, 0xFFFFFF,{
+//    []() {
+//        if (screen == 2) {
+//            screen = 1;
+//            update_screen(0);
+//        } else if (screen == 3) {
+//            screen = 2;
+//            update_screen(0);
+//        } else if (screen == 4) {
+//            screen = 2;
+//            update_screen(0);
+//        }
+//    }
+//});
 
 void update_screen(int update_mode) {
-  BrainScreen brainscreen;
+  //BrainScreen brainscreen;
   if (screenUpdating) return; 
   screenUpdating = true; // Prevent multiple updates at once
   switch (screen) {
@@ -535,7 +535,7 @@ void update_screen(int update_mode) {
           // Auton Bar
           set("fill","bg bar"); // Draw background bar
           //pros::screen::fill_rect(0, 0, 480, 50); // Fill the top bar with the background color
-          brainscreen.draw_rect(0, 0, 480, 50); // Draw a rectangle in the middle for the auton name
+          //brainscreen.draw_rect(0, 0, 480, 50); // Draw a rectangle in the middle for the auton name
           set("pen","text bar"); // Set text color and print "Auton:"
           pros::screen::print(pros::E_TEXT_LARGE, 0, 10, "Auton:");
           if (selectedauton >= 0 && selectedauton < autonCount) { // Determine which auton is selected and print its name
