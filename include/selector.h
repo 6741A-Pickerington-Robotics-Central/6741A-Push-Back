@@ -29,6 +29,7 @@ struct Key {
     char character;
 };
 
+
 void update_screen(int update_mode);
 void set(std::string pen, std::string color);
 bool button_press_at(int xpos1, int ypos1, int xpos2, int ypos2, int touch_status);
@@ -60,6 +61,6 @@ extern int screencooldown; // Cooldown for screen updates
 extern pros::screen_touch_status_s_t status; // Variable to store touch status
 extern int last_screen; // Variable to store the last screen for debugging
 extern bool running; // Flag to prevent multiple autons from running simultaneously
-extern int autonCount; // Variable to store the number of available autonomous routines
+extern int autonCountOld; // Variable to store the number of available autonomous routines
 
 #endif // SELECTOR_H

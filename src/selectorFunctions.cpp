@@ -15,7 +15,7 @@ int screencooldown = 0; // Cooldown for screen updates
 pros::screen_touch_status_s_t status; // Variable to store touch status
 int last_screen = 0; // Variable to store the last screen for debugging
 bool running = false; // Flag to prevent multiple autons from running simultaneously
-int autonCount = autonOptions.size(); // Variable to store the number of available autonomous routines
+int autonCountOld = autonOptions.size(); // Variable to store the number of available autonomous routines
 
 /////////////////////////////////////////////
 //             Basic Functions             //
@@ -95,9 +95,9 @@ std::string generateFileName(const std::string& prefix, int counter) {
 
 void check_for_loop(void) {
     if (selectedauton <= -3) {
-        selectedauton = autonCount-1;
+        selectedauton = autonCountOld-1;
     }
-    if (selectedauton >= autonCount) {
+    if (selectedauton >= autonCountOld) {
         selectedauton = -2;
     }
 }

@@ -1,6 +1,7 @@
 #include "main.h" // Include the main header for the PROS library
 #include "p_selector.h" // Include the selector header for the auton selector
 #include "pros/misc.hpp"
+#include "liblvgl/lvgl.h"
 
 void screenTaskFunction(); // Forward declaration of the screen task function
 
@@ -136,8 +137,9 @@ void initialize() {
     chassis.calibrate(); // Calibrate sensors
     //pros::Task screenTask(screenTaskFunction); // Start the screen task for debugging
     //pros::Task selector_task(selector); // Run the auton selector in a separate task
-    pros::delay(5000); // Wait for a moment to ensure everything is initialized
+    //pros::delay(5000); // Wait for a moment to ensure everything is initialized
     //runauton(); 
+    Setup_lvgl_selector(); // Setup the LVGL based auton selector
 }
 
 void disabled() {}

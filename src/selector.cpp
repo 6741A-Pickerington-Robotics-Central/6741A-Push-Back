@@ -11,6 +11,7 @@
 #include <vector>
 #include <string>
 #include "screen.cpp"
+#include "liblvgl/lvgl.h"
 
 /////////////////////////////////////////////
 // Save and Load Autons and Auton Settings //
@@ -322,6 +323,207 @@ void printAutonNames(int startX, int startY, int yOffset, int selectedIndex, int
     }
 }
 
+/*
+
+NEW AUTON SELECTOR USING LVGL
+
+*/
+
+// Page containers
+lv_obj_t *page_auton;
+lv_obj_t *page_editor;
+lv_obj_t *page_diag;
+lv_obj_t *page_device;
+
+// For device details
+lv_obj_t *device_label_name;
+lv_obj_t *device_label_port;
+lv_obj_t *device_label_temp;
+int current_device_port = -1;
+bool current_device_is_motor = false;
+
+// Simple device list (you can expand this)
+struct Device {
+    std::string name;
+    int port;
+    bool is_motor;
+};
+
+std::vector<Device> devices = {
+    {"Left Drive Motor", 1, true},
+    {"Right Drive Motor", 2, true},
+    {"Intake Motor", 3, true},
+    {"Inertial Sensor", 4, false},
+    {"Odom Pod Vertical", 5, false}
+};
+
+// --- Utility: Show one page, hide others ---
+void show_page(lv_obj_t *page) {
+    lv_obj_add_flag(page_auton, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_add_flag(page_editor, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_add_flag(page_diag, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_add_flag(page_device, LV_OBJ_FLAG_HIDDEN);
+
+    lv_obj_clear_flag(page, LV_OBJ_FLAG_HIDDEN);
+}
+
+// --- Event callbacks ---
+static void goto_auton(lv_event_t *e) { show_page(page_auton); }
+static void goto_editor(lv_event_t *e) { show_page(page_editor); }
+static void goto_diag(lv_event_t *e) { show_page(page_diag); }
+
+// Device click handler
+static void goto_device(lv_event_t *e) {
+    Device *dev = (Device *)lv_event_get_user_data(e);
+    current_device_port = dev->port;
+    current_device_is_motor = dev->is_motor;
+
+    // Update labels
+    lv_label_set_text_fmt(device_label_name, "Device: %s", dev->name.c_str());
+    lv_label_set_text_fmt(device_label_port, "Port: %d", dev->port);
+
+    if (dev->is_motor) {
+        pros::Motor m(dev->port);
+        int temp = m.get_temperature();
+        lv_label_set_text_fmt(device_label_temp, "Temp: %d C", temp);
+        lv_obj_clear_flag(device_label_temp, LV_OBJ_FLAG_HIDDEN);
+    } else {
+        lv_obj_add_flag(device_label_temp, LV_OBJ_FLAG_HIDDEN);
+    }
+
+    show_page(page_device);
+}
+
+// --- Page builders ---
+void build_auton_page() {
+    page_auton = lv_obj_create(lv_scr_act());
+    lv_obj_set_size(page_auton, 480, 240);
+
+    lv_obj_t *label = lv_label_create(page_auton);
+    lv_label_set_text(label, "Auton Selector");
+    lv_obj_align(label, LV_ALIGN_TOP_MID, 0, 10);
+
+    // Button to diagnostics
+    lv_obj_t *btn_diag = lv_btn_create(page_auton);
+    lv_obj_set_size(btn_diag, 120, 50);
+    lv_obj_align(btn_diag, LV_ALIGN_BOTTOM_MID, 0, -10);
+    lv_obj_add_event_cb(btn_diag, goto_diag, LV_EVENT_CLICKED, NULL);
+
+    lv_obj_t *lbl_diag = lv_label_create(btn_diag);
+    lv_label_set_text(lbl_diag, "Diagnostics");
+    lv_obj_center(lbl_diag);
+}
+
+void build_editor_page() {
+    page_editor = lv_obj_create(lv_scr_act());
+    lv_obj_set_size(page_editor, 480, 240);
+
+    lv_obj_t *label = lv_label_create(page_editor);
+    lv_label_set_text(label, "Auton Editor");
+    lv_obj_align(label, LV_ALIGN_TOP_MID, 0, 10);
+
+    // Back button
+    lv_obj_t *btn_back = lv_btn_create(page_editor);
+    lv_obj_set_size(btn_back, 100, 40);
+    lv_obj_align(btn_back, LV_ALIGN_BOTTOM_LEFT, 10, -10);
+    lv_obj_add_event_cb(btn_back, goto_auton, LV_EVENT_CLICKED, NULL);
+
+    lv_obj_t *lbl_back = lv_label_create(btn_back);
+    lv_label_set_text(lbl_back, "Back");
+    lv_obj_center(lbl_back);
+}
+
+void build_diag_page() {
+    page_diag = lv_obj_create(lv_scr_act());
+    lv_obj_set_size(page_diag, 480, 240);
+
+    lv_obj_t *label = lv_label_create(page_diag);
+    lv_label_set_text(label, "Diagnostics");
+    lv_obj_align(label, LV_ALIGN_TOP_MID, 0, 10);
+
+    // Scrollable list
+    lv_obj_t *list = lv_obj_create(page_diag);
+    lv_obj_set_size(list, 460, 180);
+    lv_obj_align(list, LV_ALIGN_BOTTOM_MID, 0, -5);
+    lv_obj_set_flex_flow(list, LV_FLEX_FLOW_COLUMN);
+
+    for (auto &dev : devices) {
+        lv_obj_t *btn = lv_btn_create(list);
+        lv_obj_set_size(btn, 440, 40);
+        lv_obj_add_event_cb(btn, goto_device, LV_EVENT_CLICKED, &dev);
+
+        lv_obj_t *lbl = lv_label_create(btn);
+        if (dev.is_motor) {
+            pros::Motor m(dev.port);
+            int temp = m.get_temperature();
+            lv_label_set_text_fmt(lbl, "%s (Port %d) - %dC", dev.name.c_str(), dev.port, temp);
+        } else {
+            lv_label_set_text_fmt(lbl, "%s (Port %d)", dev.name.c_str(), dev.port);
+        }
+        lv_obj_center(lbl);
+    }
+
+    // Back button
+    lv_obj_t *btn_back = lv_btn_create(page_diag);
+    lv_obj_set_size(btn_back, 100, 40);
+    lv_obj_align(btn_back, LV_ALIGN_BOTTOM_LEFT, 10, -10);
+    lv_obj_add_event_cb(btn_back, goto_auton, LV_EVENT_CLICKED, NULL);
+
+    lv_obj_t *lbl_back = lv_label_create(btn_back);
+    lv_label_set_text(lbl_back, "Back");
+    lv_obj_center(lbl_back);
+}
+
+void build_device_page() {
+    page_device = lv_obj_create(lv_scr_act());
+    lv_obj_set_size(page_device, 480, 240);
+
+    device_label_name = lv_label_create(page_device);
+    lv_obj_align(device_label_name, LV_ALIGN_TOP_MID, 0, 10);
+
+    device_label_port = lv_label_create(page_device);
+    lv_obj_align(device_label_port, LV_ALIGN_TOP_MID, 0, 40);
+
+    device_label_temp = lv_label_create(page_device);
+    lv_obj_align(device_label_temp, LV_ALIGN_TOP_MID, 0, 70);
+
+    // Change port button (logic to be added later)
+    lv_obj_t *btn_port = lv_btn_create(page_device);
+    lv_obj_set_size(btn_port, 150, 40);
+    lv_obj_align(btn_port, LV_ALIGN_BOTTOM_MID, 0, -10);
+
+    lv_obj_t *lbl_port = lv_label_create(btn_port);
+    lv_label_set_text(lbl_port, "Change Port");
+    lv_obj_center(lbl_port);
+
+    // Back button
+    lv_obj_t *btn_back = lv_btn_create(page_device);
+    lv_obj_set_size(btn_back, 100, 40);
+    lv_obj_align(btn_back, LV_ALIGN_BOTTOM_LEFT, 10, -10);
+    lv_obj_add_event_cb(btn_back, goto_diag, LV_EVENT_CLICKED, NULL);
+
+    lv_obj_t *lbl_back = lv_label_create(btn_back);
+    lv_label_set_text(lbl_back, "Back");
+    lv_obj_center(lbl_back);
+}
+
+void Setup_lvgl_selector() {
+    build_auton_page();
+    build_editor_page();
+    build_diag_page();
+    build_device_page();
+
+    // Start on auton page
+    show_page(page_auton);
+}
+
+
+/*
+
+Old Auton Selector Code Below
+
+*/
+
 void selector() {
     loadautonsettingsFromFile(); // Load the auton settings from file
     update_screen(0); // Initial screen update
@@ -356,7 +558,7 @@ void selector() {
             }
             case 2: {
                 if (button_press_at(380, 0, 480, 33,1)) { // Clear Selection
-                    for (int i = 0; i < autonCount; i++) {
+                    for (int i = 0; i < autonCountOld; i++) {
                         if (selectedautontoedit == autonOptions[i].getFileNumber()) {  // Compare with the index
                             autonOptions[i].setFileNumber(-1); // Clear the auton file number
                             break;  // Exit loop after clearing the name
@@ -538,7 +740,7 @@ void update_screen(int update_mode) {
           //brainscreen.draw_rect(0, 0, 480, 50); // Draw a rectangle in the middle for the auton name
           set("pen","text bar"); // Set text color and print "Auton:"
           pros::screen::print(pros::E_TEXT_LARGE, 0, 10, "Auton:");
-          if (selectedauton >= 0 && selectedauton < autonCount) { // Determine which auton is selected and print its name
+          if (selectedauton >= 0 && selectedauton < autonCountOld) { // Determine which auton is selected and print its name
               Auton selected = autonOptions[selectedauton]; // Get the selected auton object
               pros::screen::set_pen(selected.getColor()); // Set the pen color based on the auton color
               pros::screen::print(pros::E_TEXT_LARGE, 130, 10, selected.getName()); // Print the auton name at the specified position
@@ -608,7 +810,7 @@ void update_screen(int update_mode) {
           pros::screen::fill_rect(145, 45, 345, 80);
           set("pen","text main");
           set("fill","bg main");
-          for (int i = 0; i < autonCount; i++) {
+          for (int i = 0; i < autonCountOld; i++) {
             if (selectedautontoedit == autonOptions[i].getFileNumber()) {  // Compare with the index
                 pros::screen::set_pen(autonOptions[i].getColor());  // Set the pen color based on the auton color
                 pros::screen::print(pros::E_TEXT_LARGE, 145, 45, autonOptions[i].getName());

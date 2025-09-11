@@ -79,6 +79,7 @@ extern pros::Color text_bar;
 extern pros::Color debug_main;
 extern pros::Color debug_secondary;
 
+void Setup_lvgl_selector();
 void runauton(void);
 void selector(void);
 void skills_auton();
