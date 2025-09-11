@@ -75,7 +75,7 @@ pros::Motor Intake4(10, pros::v5::MotorGears::green);  // 2 chain/top
 
 // Digital outputs
 pros::adi::DigitalOut Weedwacker('A');
-pros::adi::DigitalOut redirect('B');
+pros::adi::DigitalOut Redirect('B'); // Redirects balls to either top goal or hopper
 bool weedwackerState = false; // State of the weedwacker
 int weedwackercooldown = 0; // Cooldown timer for weedwacker toggle
 
@@ -111,9 +111,9 @@ std::vector<MotorWrapper> motorDevices = { // Global list of MotorWrapper object
 };
 
 std::vector<ADIWrapper> adiDevices = { // Global list of ADIWrapper objects. MAX 5 ADIs ('port',"name")
-    ADIWrapper('B',"c"), // Clamping mechanism
-    ADIWrapper('C',"m"), // Another device
-    ADIWrapper('D',"p"), // Piston control
+    ADIWrapper('z'," "), // Clamping mechanism
+    ADIWrapper('z'," "), // Another device
+    ADIWrapper('z'," "), // Piston control
     ADIWrapper('z'," "), // Blank
     ADIWrapper('z'," ") // Blank
 };
@@ -135,7 +135,7 @@ void skills_auton() {
 void initialize() {
     chassis.calibrate(); // Calibrate sensors
     //pros::Task screenTask(screenTaskFunction); // Start the screen task for debugging
-    pros::Task selector_task(selector); // Run the auton selector in a separate task
+    //pros::Task selector_task(selector); // Run the auton selector in a separate task
     pros::delay(5000); // Wait for a moment to ensure everything is initialized
     //runauton(); 
 }
@@ -192,13 +192,15 @@ void opcontrol() {
             weedwackercooldown--;
         }
         
-        // ____ Controls
-        if (controller.get_digital(pros::E_CONTROLLER_DIGITAL_R1)) {
-            redirect.set_value(1); // Top goal
+        if (controller.get_digital(pros::E_CONTROLLER_DIGITAL_L1)) {
+            Redirect.set_value(true); // Top goal (use true/false for clarity)
+            std::cout << "Redirect to Goal\n";
         }
-        if (controller.get_digital(pros::E_CONTROLLER_DIGITAL_R2)) {
-            redirect.set_value(0); // Hopper
+        if (controller.get_digital(pros::E_CONTROLLER_DIGITAL_L2)) {
+            Redirect.set_value(false); // Hopper
+            std::cout << "Redirect to Hopper\n";
         }
+        //std::cout << "Somethings Working\n";
         pros::delay(10); // delay to save resources
     }
 }
