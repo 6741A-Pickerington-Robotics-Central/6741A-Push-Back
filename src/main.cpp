@@ -137,7 +137,6 @@ void initialize() {
     chassis.calibrate(); // Calibrate sensors
     //pros::Task screenTask(screenTaskFunction); // Start the screen task for debugging
     //pros::Task selector_task(selector); // Run the auton selector in a separate task
-    //pros::delay(5000); // Wait for a moment to ensure everything is initialized
     //runauton(); 
     Setup_lvgl_selector(); // Setup the LVGL based auton selector
 }
@@ -155,7 +154,7 @@ void opcontrol() {
         int leftY = controller.get_analog(pros::E_CONTROLLER_ANALOG_RIGHT_Y);
         int rightX = controller.get_analog(pros::E_CONTROLLER_ANALOG_LEFT_Y);
         chassis.tank(leftY, rightX);
-        // Intake Controls     NEED TO BE MORE COMPLEX
+        // Intake Controls
         if (controller.get_digital(pros::E_CONTROLLER_DIGITAL_B)) {
             Intake1.move_velocity(-200);
             //Intake2.move_velocity(200);
