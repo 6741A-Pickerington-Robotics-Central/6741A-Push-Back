@@ -401,12 +401,12 @@ void build_auton_page() {
 
     lv_obj_t *label = lv_label_create(page_auton);
     lv_label_set_text(label, "Auton Selector");
-    lv_obj_align(label, LV_ALIGN_TOP_MID, 0, 10);
+    lv_obj_align(label, LV_ALIGN_TOP_LEFT, 10, 10); // from top-left
 
     // Button to diagnostics
     lv_obj_t *btn_diag = lv_btn_create(page_auton);
     lv_obj_set_size(btn_diag, 120, 50);
-    lv_obj_align(btn_diag, LV_ALIGN_BOTTOM_MID, 0, -10);
+    lv_obj_align(btn_diag, LV_ALIGN_TOP_LEFT, 10, 180); // place near bottom manually
     lv_obj_add_event_cb(btn_diag, goto_diag, LV_EVENT_CLICKED, NULL);
 
     lv_obj_t *lbl_diag = lv_label_create(btn_diag);
@@ -420,12 +420,12 @@ void build_editor_page() {
 
     lv_obj_t *label = lv_label_create(page_editor);
     lv_label_set_text(label, "Auton Editor");
-    lv_obj_align(label, LV_ALIGN_TOP_MID, 0, 10);
+    lv_obj_align(label, LV_ALIGN_TOP_LEFT, 10, 10);
 
     // Back button
     lv_obj_t *btn_back = lv_btn_create(page_editor);
     lv_obj_set_size(btn_back, 100, 40);
-    lv_obj_align(btn_back, LV_ALIGN_BOTTOM_LEFT, 10, -10);
+    lv_obj_align(btn_back, LV_ALIGN_TOP_LEFT, 10, 190); // bottom-ish
     lv_obj_add_event_cb(btn_back, goto_auton, LV_EVENT_CLICKED, NULL);
 
     lv_obj_t *lbl_back = lv_label_create(btn_back);
@@ -439,12 +439,12 @@ void build_diag_page() {
 
     lv_obj_t *label = lv_label_create(page_diag);
     lv_label_set_text(label, "Diagnostics");
-    lv_obj_align(label, LV_ALIGN_TOP_MID, 0, 10);
+    lv_obj_align(label, LV_ALIGN_TOP_LEFT, 10, 10);
 
     // Scrollable list
     lv_obj_t *list = lv_obj_create(page_diag);
-    lv_obj_set_size(list, 460, 180);
-    lv_obj_align(list, LV_ALIGN_BOTTOM_MID, 0, -5);
+    lv_obj_set_size(list, 460, 160);
+    lv_obj_align(list, LV_ALIGN_TOP_LEFT, 10, 40);
     lv_obj_set_flex_flow(list, LV_FLEX_FLOW_COLUMN);
 
     for (auto &dev : devices) {
@@ -466,7 +466,7 @@ void build_diag_page() {
     // Back button
     lv_obj_t *btn_back = lv_btn_create(page_diag);
     lv_obj_set_size(btn_back, 100, 40);
-    lv_obj_align(btn_back, LV_ALIGN_BOTTOM_LEFT, 10, -10);
+    lv_obj_align(btn_back, LV_ALIGN_TOP_LEFT, 10, 210);
     lv_obj_add_event_cb(btn_back, goto_auton, LV_EVENT_CLICKED, NULL);
 
     lv_obj_t *lbl_back = lv_label_create(btn_back);
@@ -479,18 +479,18 @@ void build_device_page() {
     lv_obj_set_size(page_device, 480, 240);
 
     device_label_name = lv_label_create(page_device);
-    lv_obj_align(device_label_name, LV_ALIGN_TOP_MID, 0, 10);
+    lv_obj_align(device_label_name, LV_ALIGN_TOP_LEFT, 10, 10);
 
     device_label_port = lv_label_create(page_device);
-    lv_obj_align(device_label_port, LV_ALIGN_TOP_MID, 0, 40);
+    lv_obj_align(device_label_port, LV_ALIGN_TOP_LEFT, 10, 40);
 
     device_label_temp = lv_label_create(page_device);
-    lv_obj_align(device_label_temp, LV_ALIGN_TOP_MID, 0, 70);
+    lv_obj_align(device_label_temp, LV_ALIGN_TOP_LEFT, 10, 70);
 
-    // Change port button (logic to be added later)
+    // Change port button
     lv_obj_t *btn_port = lv_btn_create(page_device);
     lv_obj_set_size(btn_port, 150, 40);
-    lv_obj_align(btn_port, LV_ALIGN_BOTTOM_MID, 0, -10);
+    lv_obj_align(btn_port, LV_ALIGN_TOP_LEFT, 10, 100);
 
     lv_obj_t *lbl_port = lv_label_create(btn_port);
     lv_label_set_text(lbl_port, "Change Port");
@@ -499,7 +499,7 @@ void build_device_page() {
     // Back button
     lv_obj_t *btn_back = lv_btn_create(page_device);
     lv_obj_set_size(btn_back, 100, 40);
-    lv_obj_align(btn_back, LV_ALIGN_BOTTOM_LEFT, 10, -10);
+    lv_obj_align(btn_back, LV_ALIGN_TOP_LEFT, 10, 150);
     lv_obj_add_event_cb(btn_back, goto_diag, LV_EVENT_CLICKED, NULL);
 
     lv_obj_t *lbl_back = lv_label_create(btn_back);
