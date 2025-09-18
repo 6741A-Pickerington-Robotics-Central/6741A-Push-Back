@@ -76,7 +76,7 @@ pros::Motor Intake4(10, pros::v5::MotorGears::green);  // 2 chain/top
 
 // Digital outputs
 pros::adi::DigitalOut Weedwacker('A');
-pros::adi::DigitalOut Redirect('B'); // Redirects balls to either top goal or hopper
+pros::adi::DigitalOut descore('B'); // Redirects balls to either top goal or hopper
 bool weedwackerState = false; // State of the weedwacker
 int weedwackercooldown = 0; // Cooldown timer for weedwacker toggle
 
@@ -157,22 +157,22 @@ void opcontrol() {
         // Intake Controls
         if (controller.get_digital(pros::E_CONTROLLER_DIGITAL_B)) {
             Intake1.move_velocity(-200);
-            //Intake2.move_velocity(200);
-            Intake3.move_velocity(-200);
-            Intake4.move_velocity(200);
+            Intake2.move_velocity(200);
+            Intake3.move_velocity(50);
+            //Intake4.move_velocity(200);
         } else if (controller.get_digital(pros::E_CONTROLLER_DIGITAL_Y)) {
             Intake1.move_velocity(-200);
-            Intake2.move_velocity(200);
+            Intake2.move_velocity(-200);
             Intake3.move_velocity(-200);
             Intake4.move_velocity(200);
         } else if (controller.get_digital(pros::E_CONTROLLER_DIGITAL_DOWN)) {
             Intake1.move_velocity(-200);
-            Intake2.move_velocity(200);
+            Intake2.move_velocity(-200);
             Intake3.move_velocity(-200);
             Intake4.move_velocity(-200);
         } else if (controller.get_digital(pros::E_CONTROLLER_DIGITAL_LEFT)) {
             Intake1.move_velocity(200);
-            Intake2.move_velocity(200);
+            Intake2.move_velocity(-200);
             Intake3.move_velocity(200);
             Intake4.move_velocity(-200);
         } else {
@@ -194,11 +194,11 @@ void opcontrol() {
         }
         
         if (controller.get_digital(pros::E_CONTROLLER_DIGITAL_L1)) {
-            Redirect.set_value(true); // Top goal (use true/false for clarity)
+            descore.set_value(true); // Top goal (use true/false for clarity)
             std::cout << "Redirect to Goal\n";
         }
         if (controller.get_digital(pros::E_CONTROLLER_DIGITAL_L2)) {
-            Redirect.set_value(false); // Hopper
+            descore.set_value(false); // Hopper
             std::cout << "Redirect to Hopper\n";
         }
         //std::cout << "Somethings Working\n";

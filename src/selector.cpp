@@ -710,21 +710,6 @@ void selector() {
     }
 }
 
-//button Backbtn(0, 0, 50, 32, "<", 0x303030, 0xFFFFFF,{
-//    []() {
-//        if (screen == 2) {
-//            screen = 1;
-//            update_screen(0);
-//        } else if (screen == 3) {
-//            screen = 2;
-//            update_screen(0);
-//        } else if (screen == 4) {
-//            screen = 2;
-//            update_screen(0);
-//        }
-//    }
-//});
-
 void update_screen(int update_mode) {
   //BrainScreen brainscreen;
   if (screenUpdating) return; 
