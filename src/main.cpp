@@ -85,13 +85,15 @@ int weedwackercooldown = 0; // Cooldown timer for weedwacker toggle
 bool debug = true; // Debug flag for screen interactions
 
 // Define available autonomous routines
+#if 0
 std::vector<Auton> autonOptions = { // No More than 10 Characters in the names
-    Auton("Red Close", pros::Color::red),
-    Auton("Red Far", pros::Color::red),
-    Auton("Blue Close", pros::Color::blue),
-    Auton("Blue Far", pros::Color::blue),
-    Auton("Ex. Auton", pros::Color::black)
+    Auton("Red Close"),
+    Auton("Red Far"),
+    Auton("Blue Close"),
+    Auton("Blue Far"),
+    Auton("Ex. Auton")
 };
+#endif
 
 pros::Color bg_main = pros::Color::purple; //Main background color
 pros::Color button = pros::Color::black; //Button background color
@@ -145,7 +147,7 @@ void disabled() {}
 void competition_initialize() {}
 
 void autonomous() {
-  runauton();
+  //runauton();
 }
 
 void opcontrol() {

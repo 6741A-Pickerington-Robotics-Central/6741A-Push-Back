@@ -13,140 +13,25 @@
 #include "screen.cpp"
 #include "liblvgl/lvgl.h"
 
-/////////////////////////////////////////////
-// Save and Load Autons and Auton Settings //
-/////////////////////////////////////////////
+const char* selected_auton = NULL;
 
-void saveautonsettingsToFile() {
-    // Open the file for writing
-    std::ofstream file("/usd/autonsettings.txt");
-    if (!file) {
-        std::cerr << "Failed to open file for writing!\n";
-        return;
-    }
-    // Write the index of each Auton to the file
-    for (int i = 0; i < autonOptions.size(); i++) {
-        // Assuming that autonOptions[i].getFileNumber() returns the file number (e.g., 1 for A01.txt)
-        file << autonOptions[i].getFileNumber() << "\n";
-    }
-    file.close();
-    if (file.good()) {
-        std::cout << "Data saved successfully!\n";
-    } else {
-        std::cerr << "Failed to save data properly!\n";
-    }
-}
-
-void loadautonsettingsFromFile() {
-    std::string filepath = "/usd/autonsettings.txt"; // Construct the file path
-    // Open the file for reading
-    FILE* file = fopen(filepath.c_str(), "r");
-    if (!file) {
-        printf("File not found: %s\n", filepath.c_str());
-        return;
-    }
-    // Buffer to store each line
-    char buffer[100]; // Adjust size based on expected line length
-    std::string line;
-    int index = 0;
-    // Read the file line by line
-    while (fgets(buffer, sizeof(buffer), file)) {
-        line = buffer;
-        if (index < autonOptions.size()) {
-            int fileNumber;
-            std::stringstream(line) >> fileNumber;
-
-            // Set the file number to the corresponding Auton object
-            autonOptions[index].setFileNumber(fileNumber);  // Assuming setFileNumber is a setter for file number
-            index++;
-        }
-    }
-    fclose(file); // Close the file
-    // Print the loaded values for debugging
-    for (int i = 0; i < autonOptions.size(); i++) {
-        std::cout << "Auton " << i + 1 << ": File number " << autonOptions[i].getFileNumber() << std::endl;
-    }
-}
-
-void savetxtofauton(const std::string& filename, const std::vector<std::string>& items) {
-    // Open the file for writing
-    std::ofstream file("/usd/" + filename);
-
-    if (!file) {
-        std::cerr << "Failed to open file for writing!\n";
-
-        return;
-    }
-
-    // Write each item to the file, separated by newlines
-    for (const auto& item : items) {
-        file << item << "\n";
-    }
-
-    file.close();
-    
-    if (file.good()) {
-        std::cout << "Data saved to SD card successfully!\n";
-        saving = 2;
-        update_screen(1);
-    } else {
-        std::cerr << "Failed to save data properly!\n";
-    }
-}
-
-std::vector<std::string> loadtxtauton(std::string filename) {
-    // Clear existing items before loading new data
-    items.clear();
-
-    // Construct the file path
-    std::string filepath = "/usd/" + filename;
-
-    // Check if the file exists by attempting to open it
-    FILE* file = fopen(filepath.c_str(), "r");
-    if (!file) {
-        printf("File not found: %s\n", filepath.c_str());
-        return items;
-    }
-
-    // Read file line by line
-    char buffer[300]; // Adjust size based on expected file size
-    while (fgets(buffer, sizeof(buffer), file)) {
-        std::string line(buffer);
-        // Remove trailing newline character if present
-        if (!line.empty() && line.back() == '\n') {
-            line.pop_back();
-        }
-        // Avoid adding empty lines
-        if (!line.empty()) {
-            items.push_back(line);
-        }
-    }
-
-    // Close the file
-    fclose(file);
-
-    // Print the decoded list for debugging
-    printf("Decoded List:\n");
-    for (const auto& item : items) {
-        printf("%s\n", item.c_str());
-    }
-
-    return items;
-}
 
 /////////////////////////////////////////////
 //             Run The Auton               //
 /////////////////////////////////////////////
-
+#if 0
 void runauton(void) {
     if (running) return; // Prevent running multiple autons simultaneously
     running = true; // Set the running flag to true
     leftMotors.set_brake_mode(pros::E_MOTOR_BRAKE_BRAKE); // Set left motors to brake mode
     rightMotors.set_brake_mode(pros::E_MOTOR_BRAKE_BRAKE); // Set right motors to brake mode
     chassis.setPose(0, 0, 0); // Set position to x:0, y:0, heading:0
-    if (selectedauton >= 0 && selectedauton < autonOptions.size()) {
-        int fileNumber = autonOptions[selectedauton].getFileNumber();
-        runtxtauton(loadtxtauton(generateFileName("A", fileNumber)));
+    if (index >= 0 && index < autonOptions.size()) {
+        if (!autonOptions[index].loadFromFile()) {
+            printf("Failed to load auton file!\n");
+        } else {
+            runtxtauton(autonOptions[index].getCommands());
+        }
     } else if (selectedauton == -1) {
         skills_auton(); // Run the skills auton if selectedauton is -1
     } else if (selectedauton == -2) {
@@ -157,6 +42,7 @@ void runauton(void) {
     rightMotors.set_brake_mode(pros::E_MOTOR_BRAKE_COAST); // Set right motors to coast mode
     running = false; // Set the running flag to false after the auton is complete
 }
+#endif
 
 void runtxtauton(std::vector<std::string> list) {
     chassis.setPose(0, 0, 0); // Reset the chassis pose to (0, 0, 0) before running the auton
@@ -272,9 +158,300 @@ void runtxtauton(std::vector<std::string> list) {
     }
 }  
 
-/////////////////////////////////////////////
-//      Selector And Screen Functions      //
-/////////////////////////////////////////////
+/*
+
+NEW AUTON SELECTOR USING LVGL
+
+*/
+
+// Page containers
+lv_obj_t *page_home;
+lv_obj_t *page_editor;
+lv_obj_t *page_diag;
+lv_obj_t *page_device;
+
+// For device details
+lv_obj_t *device_label_name;
+lv_obj_t *device_label_port;
+lv_obj_t *device_label_temp;
+int current_device_port = -1;
+bool current_device_is_motor = false;
+
+// Simple device list (you can expand this)
+struct Device {
+    std::string name;
+    int port;
+    bool is_motor;
+};
+
+std::vector<Device> devices = {
+    {"Left Front Drive Motor", 1, true},
+    {"Left Middle Drive Motor", 1, true},
+    {"Left Back Drive Motor", 1, true},
+    {"Right Front Drive Motor", 1, true},
+    {"Right Middle Drive Motor", 1, true},
+    {"Right back Drive Motor", 2, true},
+    {"Intake Motor 1", 3, true},
+    {"Intake Motor 2", 3, true},
+    {"Intake Motor 3", 3, true},
+    {"Intake Motor 4", 3, true},
+    {"Inertial Sensor", 4, false},
+    {"Odom Pod Vertical", 5, false},
+    {"Odom Pod Horizontal", 5, false}
+};
+
+// --- Utility: Show one page, hide others ---
+void show_page(lv_obj_t *page) {
+    lv_obj_add_flag(page_home, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_add_flag(page_editor, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_add_flag(page_diag, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_add_flag(page_device, LV_OBJ_FLAG_HIDDEN);
+
+    lv_obj_clear_flag(page, LV_OBJ_FLAG_HIDDEN);
+}
+
+// --- Event callbacks ---
+static void goto_home(lv_event_t *e) { show_page(page_home); }
+static void goto_editor(lv_event_t *e) { show_page(page_editor); }
+static void goto_diag(lv_event_t *e) { show_page(page_diag); }
+
+void auton_btn_cb(lv_event_t * e) {
+    lv_obj_t *btn = lv_event_get_target(e);       // the button that was pressed
+    lv_obj_t *label = lv_obj_get_child(btn, 0);  // first child of button is usually the label
+    selected_auton = lv_label_get_text(label);   // store the label text
+    printf("Selected auton: %s\n", selected_auton);
+
+    // Get the top bar label from button's user data
+    lv_obj_t *top_label = (lv_obj_t *)lv_event_get_user_data(e);
+
+    // Update the top bar label
+    char buf[64];
+    snprintf(buf, sizeof(buf), "Selected: %s", selected_auton);
+    lv_label_set_text(top_label, buf);
+
+    // Refresh display
+    lv_obj_update_layout(top_label);
+}
+
+// Device click handler
+static void goto_device(lv_event_t *e) {
+    Device *dev = (Device *)lv_event_get_user_data(e);
+    current_device_port = dev->port;
+    current_device_is_motor = dev->is_motor;
+
+    // Update labels
+    lv_label_set_text_fmt(device_label_name, "Device: %s", dev->name.c_str());
+    lv_label_set_text_fmt(device_label_port, "Port: %d", dev->port);
+
+    if (dev->is_motor) {
+        pros::Motor m(dev->port);
+        int temp = m.get_temperature();
+        lv_label_set_text_fmt(device_label_temp, "Temp: %d C", temp);
+        lv_obj_clear_flag(device_label_temp, LV_OBJ_FLAG_HIDDEN);
+    } else {
+        lv_obj_add_flag(device_label_temp, LV_OBJ_FLAG_HIDDEN);
+    }
+
+    show_page(page_device);
+}
+
+// --- Page builders ---
+void build_home_page() {
+    page_home = lv_obj_create(lv_scr_act());
+    lv_obj_set_size(page_home, 480, 240);
+    lv_obj_clear_flag(page_home, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_set_style_border_width(page_home, 0, 0);
+    lv_obj_set_style_pad_all(page_home, 0, 0);
+    lv_obj_set_style_bg_opa(page_home, LV_OPA_TRANSP, 0); // optional: transparent background
+
+    // Top bar
+    lv_obj_t *top_bar = lv_obj_create(page_home);
+    lv_obj_set_size(top_bar, 480, 40);  // full width, 40px tall
+    lv_obj_set_style_bg_color(top_bar, lv_color_white(), 0);
+    lv_obj_set_pos(top_bar, 0, 0);
+    lv_obj_clear_flag(top_bar, LV_OBJ_FLAG_SCROLLABLE);
+
+    lv_obj_t *auton_label = lv_label_create(top_bar);
+    lv_label_set_text(auton_label, "Selected: None");
+    lv_obj_set_style_text_color(auton_label, lv_color_black(), 0);
+    lv_obj_center(auton_label);
+
+    // Main area below top bar
+    lv_obj_t *main_area = lv_obj_create(page_home);
+    lv_obj_set_size(main_area, 480, 200);  // fills space under top bar
+    lv_obj_set_pos(main_area, 0, 40);
+    lv_obj_set_flex_flow(main_area, LV_FLEX_FLOW_ROW);  // horizontal split
+    lv_obj_set_style_pad_all(main_area, 5, 0);
+    lv_obj_set_style_bg_color(main_area, lv_color_hsv_to_rgb(280,255,255), 0);
+    lv_obj_set_style_text_opa(main_area, LV_OPA_COVER, 0);
+
+    // Left half with auton list
+    lv_obj_t *auton_list = lv_list_create(main_area);
+    lv_obj_set_size(auton_list, 220, LV_PCT(100));  // ~half width
+    lv_obj_t *red_left_btn = lv_list_add_btn(auton_list, NULL, "Red Left");
+    lv_obj_t *red_right_btn = lv_list_add_btn(auton_list, NULL, "Red Right");
+    lv_obj_t *blue_left_btn = lv_list_add_btn(auton_list, NULL, "Blue Left");
+    lv_obj_t *blue_right_btn = lv_list_add_btn(auton_list, NULL, "Blue Right");
+
+    lv_obj_set_style_text_opa(lv_obj_get_child(red_left_btn, 0), LV_OPA_COVER, 0);
+    lv_obj_set_style_text_color(lv_obj_get_child(red_left_btn, 0), lv_color_hsv_to_rgb(10,255,255), 0);
+    lv_obj_set_style_text_opa(lv_obj_get_child(red_right_btn, 0), LV_OPA_COVER, 0);
+    lv_obj_set_style_text_color(lv_obj_get_child(red_right_btn, 0), lv_color_hsv_to_rgb(10,255,255), 0); 
+    lv_obj_set_style_text_opa(lv_obj_get_child(blue_left_btn, 0), LV_OPA_COVER, 0);
+    lv_obj_set_style_text_color(lv_obj_get_child(blue_left_btn, 0), lv_color_hsv_to_rgb(200,255,255), 0);
+    lv_obj_set_style_text_opa(lv_obj_get_child(blue_right_btn, 0), LV_OPA_COVER, 0);
+    lv_obj_set_style_text_color(lv_obj_get_child(blue_right_btn, 0), lv_color_hsv_to_rgb(200,255,255), 0);
+
+    lv_obj_add_event_cb(red_left_btn, auton_btn_cb, LV_EVENT_CLICKED, auton_label);
+    lv_obj_add_event_cb(red_right_btn, auton_btn_cb, LV_EVENT_CLICKED, auton_label);
+    lv_obj_add_event_cb(blue_left_btn, auton_btn_cb, LV_EVENT_CLICKED, auton_label);
+    lv_obj_add_event_cb(blue_right_btn, auton_btn_cb, LV_EVENT_CLICKED, auton_label);
+
+
+    // Right half with buttons
+    lv_obj_t *button_col = lv_obj_create(main_area);
+    lv_obj_set_size(button_col, 220, LV_PCT(100));
+    lv_obj_clear_flag(button_col, LV_OBJ_FLAG_SCROLLABLE);
+
+    lv_obj_t *btn_diag = lv_btn_create(button_col);
+    lv_obj_t *lbl_diag = lv_label_create(btn_diag);
+    lv_label_set_text(lbl_diag, "Diagnostics");
+    lv_obj_align(lbl_diag, LV_ALIGN_CENTER, 0, 0);
+    lv_obj_set_pos(btn_diag, 0, 0);
+    lv_obj_set_size(btn_diag, LV_PCT(100), 30);
+    lv_obj_add_event_cb(btn_diag, goto_diag, LV_EVENT_CLICKED, NULL);
+    
+    lv_obj_t *btn_ports = lv_btn_create(button_col);
+    lv_obj_t *lbl_ports = lv_label_create(btn_ports);
+    lv_obj_align(lbl_ports, LV_ALIGN_CENTER, 0, 0);
+    lv_label_set_text(lbl_ports, "Port Reassign");
+    lv_obj_set_pos(btn_ports, 0, 40);
+    lv_obj_set_size(btn_ports, LV_PCT(100), 30);
+
+    lv_obj_t *btn_editor = lv_btn_create(button_col);
+    lv_obj_t *lbl_editor = lv_label_create(btn_editor);
+    lv_obj_align(lbl_editor, LV_ALIGN_CENTER, 0, 0);
+    lv_label_set_text(lbl_editor, "Auton Editor");
+    lv_obj_set_pos(btn_editor, 0, 80);
+    lv_obj_set_size(btn_editor, LV_PCT(100), 30);
+
+    lv_obj_t *btn_run = lv_btn_create(button_col);
+    lv_obj_t *lbl_run = lv_label_create(btn_run);
+    lv_obj_align(lbl_run, LV_ALIGN_CENTER, 0, 0);
+    lv_label_set_text(lbl_run, "Run");
+    lv_obj_set_pos(btn_run, 0, 120);
+    lv_obj_set_size(btn_run, LV_PCT(100), 30);
+}
+
+void build_diag_page() {
+    page_diag = lv_obj_create(lv_scr_act());
+    lv_obj_set_size(page_diag, 480, 240);
+    lv_obj_clear_flag(page_diag, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_set_style_border_width(page_diag, 0, 0);
+    lv_obj_set_style_pad_all(page_diag, 0, 0);
+    lv_obj_set_style_bg_opa(page_diag, LV_OPA_TRANSP, 0); // optional: transparent background
+
+    // Scrollable list
+    lv_obj_t *list = lv_obj_create(page_diag);
+    lv_obj_set_size(list, 480, 170);
+    lv_obj_set_pos(list, 5, 0);
+    lv_obj_set_flex_flow(list, LV_FLEX_FLOW_COLUMN);
+
+    for (auto &dev : devices) {
+        lv_obj_t *lbl = lv_label_create(list);
+        if (dev.is_motor) {
+            pros::Motor m(dev.port);
+            int temp = m.get_temperature();
+            lv_label_set_text_fmt(lbl, "%s (Port %d) - %dC", dev.name.c_str(), dev.port, temp);
+        } else {
+            lv_label_set_text_fmt(lbl, "%s (Port %d)", dev.name.c_str(), dev.port);
+        }
+        lv_obj_center(lbl);
+    }
+
+    // Back button
+    lv_obj_t *btn_back = lv_btn_create(page_diag);
+    lv_obj_set_size(btn_back, 100, 40);
+    lv_obj_set_pos(btn_back, 5, 190);
+    lv_obj_add_event_cb(btn_back, goto_home, LV_EVENT_CLICKED, NULL);
+
+    lv_obj_t *lbl_back = lv_label_create(btn_back);
+    lv_label_set_text(lbl_back, "Back");
+    lv_obj_center(lbl_back);
+}
+
+void build_editor_page() {
+    page_editor = lv_obj_create(lv_scr_act());
+    lv_obj_set_size(page_editor, 480, 240);
+    lv_obj_clear_flag(page_editor, LV_OBJ_FLAG_SCROLLABLE);
+
+    lv_obj_t *label = lv_label_create(page_editor);
+    lv_label_set_text(label, "Auton Editor");
+    lv_obj_align(label, LV_ALIGN_TOP_LEFT, 10, 10);
+
+    // Back button
+    lv_obj_t *btn_back = lv_btn_create(page_editor);
+    lv_obj_set_size(btn_back, 100, 40);
+    lv_obj_align(btn_back, LV_ALIGN_TOP_LEFT, 10, 190); // bottom-ish
+    lv_obj_add_event_cb(btn_back, goto_home, LV_EVENT_CLICKED, NULL);
+
+    lv_obj_t *lbl_back = lv_label_create(btn_back);
+    lv_label_set_text(lbl_back, "Back");
+    lv_obj_center(lbl_back);
+}
+
+void build_device_page() {
+    page_device = lv_obj_create(lv_scr_act());
+    lv_obj_set_size(page_device, 480, 240);
+    lv_obj_clear_flag(page_device, LV_OBJ_FLAG_SCROLLABLE);
+
+    device_label_name = lv_label_create(page_device);
+    lv_obj_align(device_label_name, LV_ALIGN_TOP_LEFT, 10, 10);
+
+    device_label_port = lv_label_create(page_device);
+    lv_obj_align(device_label_port, LV_ALIGN_TOP_LEFT, 10, 40);
+
+    device_label_temp = lv_label_create(page_device);
+    lv_obj_align(device_label_temp, LV_ALIGN_TOP_LEFT, 10, 70);
+
+    // Change port button
+    lv_obj_t *btn_port = lv_btn_create(page_device);
+    lv_obj_set_size(btn_port, 150, 40);
+    lv_obj_align(btn_port, LV_ALIGN_TOP_LEFT, 10, 100);
+
+    lv_obj_t *lbl_port = lv_label_create(btn_port);
+    lv_label_set_text(lbl_port, "Change Port");
+    lv_obj_center(lbl_port);
+
+    // Back button
+    lv_obj_t *btn_back = lv_btn_create(page_device);
+    lv_obj_set_size(btn_back, 100, 40);
+    lv_obj_align(btn_back, LV_ALIGN_TOP_LEFT, 10, 150);
+    lv_obj_add_event_cb(btn_back, goto_diag, LV_EVENT_CLICKED, NULL);
+
+    lv_obj_t *lbl_back = lv_label_create(btn_back);
+    lv_label_set_text(lbl_back, "Back");
+    lv_obj_center(lbl_back);
+}
+
+void Setup_lvgl_selector() {
+    build_home_page();
+    build_editor_page();
+    build_diag_page();
+    build_device_page();
+
+    // Start on auton page
+    show_page(page_home);
+}
+
+
+/*
+
+Old Auton Selector Code Below
+
+*/
+
+#if 0
 
 void printListToScreen(const std::vector<std::string>& items, int start_y, int y_increment, int linehighlight, int shift_highlight) {
     int y = start_y; // Initial y-coordinate for printing
@@ -322,207 +499,6 @@ void printAutonNames(int startX, int startY, int yOffset, int selectedIndex, int
         y += yOffset;
     }
 }
-
-/*
-
-NEW AUTON SELECTOR USING LVGL
-
-*/
-
-// Page containers
-lv_obj_t *page_auton;
-lv_obj_t *page_editor;
-lv_obj_t *page_diag;
-lv_obj_t *page_device;
-
-// For device details
-lv_obj_t *device_label_name;
-lv_obj_t *device_label_port;
-lv_obj_t *device_label_temp;
-int current_device_port = -1;
-bool current_device_is_motor = false;
-
-// Simple device list (you can expand this)
-struct Device {
-    std::string name;
-    int port;
-    bool is_motor;
-};
-
-std::vector<Device> devices = {
-    {"Left Drive Motor", 1, true},
-    {"Right Drive Motor", 2, true},
-    {"Intake Motor", 3, true},
-    {"Inertial Sensor", 4, false},
-    {"Odom Pod Vertical", 5, false}
-};
-
-// --- Utility: Show one page, hide others ---
-void show_page(lv_obj_t *page) {
-    lv_obj_add_flag(page_auton, LV_OBJ_FLAG_HIDDEN);
-    lv_obj_add_flag(page_editor, LV_OBJ_FLAG_HIDDEN);
-    lv_obj_add_flag(page_diag, LV_OBJ_FLAG_HIDDEN);
-    lv_obj_add_flag(page_device, LV_OBJ_FLAG_HIDDEN);
-
-    lv_obj_clear_flag(page, LV_OBJ_FLAG_HIDDEN);
-}
-
-// --- Event callbacks ---
-static void goto_auton(lv_event_t *e) { show_page(page_auton); }
-static void goto_editor(lv_event_t *e) { show_page(page_editor); }
-static void goto_diag(lv_event_t *e) { show_page(page_diag); }
-
-// Device click handler
-static void goto_device(lv_event_t *e) {
-    Device *dev = (Device *)lv_event_get_user_data(e);
-    current_device_port = dev->port;
-    current_device_is_motor = dev->is_motor;
-
-    // Update labels
-    lv_label_set_text_fmt(device_label_name, "Device: %s", dev->name.c_str());
-    lv_label_set_text_fmt(device_label_port, "Port: %d", dev->port);
-
-    if (dev->is_motor) {
-        pros::Motor m(dev->port);
-        int temp = m.get_temperature();
-        lv_label_set_text_fmt(device_label_temp, "Temp: %d C", temp);
-        lv_obj_clear_flag(device_label_temp, LV_OBJ_FLAG_HIDDEN);
-    } else {
-        lv_obj_add_flag(device_label_temp, LV_OBJ_FLAG_HIDDEN);
-    }
-
-    show_page(page_device);
-}
-
-// --- Page builders ---
-void build_auton_page() {
-    page_auton = lv_obj_create(lv_scr_act());
-    lv_obj_set_size(page_auton, 480, 240);
-
-    lv_obj_t *label = lv_label_create(page_auton);
-    lv_label_set_text(label, "Auton Selector");
-    lv_obj_align(label, LV_ALIGN_TOP_LEFT, 10, 10); // from top-left
-
-    // Button to diagnostics
-    lv_obj_t *btn_diag = lv_btn_create(page_auton);
-    lv_obj_set_size(btn_diag, 120, 50);
-    lv_obj_align(btn_diag, LV_ALIGN_TOP_LEFT, 10, 180); // place near bottom manually
-    lv_obj_add_event_cb(btn_diag, goto_diag, LV_EVENT_CLICKED, NULL);
-
-    lv_obj_t *lbl_diag = lv_label_create(btn_diag);
-    lv_label_set_text(lbl_diag, "Diagnostics");
-    lv_obj_center(lbl_diag);
-}
-
-void build_editor_page() {
-    page_editor = lv_obj_create(lv_scr_act());
-    lv_obj_set_size(page_editor, 480, 240);
-
-    lv_obj_t *label = lv_label_create(page_editor);
-    lv_label_set_text(label, "Auton Editor");
-    lv_obj_align(label, LV_ALIGN_TOP_LEFT, 10, 10);
-
-    // Back button
-    lv_obj_t *btn_back = lv_btn_create(page_editor);
-    lv_obj_set_size(btn_back, 100, 40);
-    lv_obj_align(btn_back, LV_ALIGN_TOP_LEFT, 10, 190); // bottom-ish
-    lv_obj_add_event_cb(btn_back, goto_auton, LV_EVENT_CLICKED, NULL);
-
-    lv_obj_t *lbl_back = lv_label_create(btn_back);
-    lv_label_set_text(lbl_back, "Back");
-    lv_obj_center(lbl_back);
-}
-
-void build_diag_page() {
-    page_diag = lv_obj_create(lv_scr_act());
-    lv_obj_set_size(page_diag, 480, 240);
-
-    lv_obj_t *label = lv_label_create(page_diag);
-    lv_label_set_text(label, "Diagnostics");
-    lv_obj_align(label, LV_ALIGN_TOP_LEFT, 10, 10);
-
-    // Scrollable list
-    lv_obj_t *list = lv_obj_create(page_diag);
-    lv_obj_set_size(list, 460, 160);
-    lv_obj_align(list, LV_ALIGN_TOP_LEFT, 10, 40);
-    lv_obj_set_flex_flow(list, LV_FLEX_FLOW_COLUMN);
-
-    for (auto &dev : devices) {
-        lv_obj_t *btn = lv_btn_create(list);
-        lv_obj_set_size(btn, 440, 40);
-        lv_obj_add_event_cb(btn, goto_device, LV_EVENT_CLICKED, &dev);
-
-        lv_obj_t *lbl = lv_label_create(btn);
-        if (dev.is_motor) {
-            pros::Motor m(dev.port);
-            int temp = m.get_temperature();
-            lv_label_set_text_fmt(lbl, "%s (Port %d) - %dC", dev.name.c_str(), dev.port, temp);
-        } else {
-            lv_label_set_text_fmt(lbl, "%s (Port %d)", dev.name.c_str(), dev.port);
-        }
-        lv_obj_center(lbl);
-    }
-
-    // Back button
-    lv_obj_t *btn_back = lv_btn_create(page_diag);
-    lv_obj_set_size(btn_back, 100, 40);
-    lv_obj_align(btn_back, LV_ALIGN_TOP_LEFT, 10, 210);
-    lv_obj_add_event_cb(btn_back, goto_auton, LV_EVENT_CLICKED, NULL);
-
-    lv_obj_t *lbl_back = lv_label_create(btn_back);
-    lv_label_set_text(lbl_back, "Back");
-    lv_obj_center(lbl_back);
-}
-
-void build_device_page() {
-    page_device = lv_obj_create(lv_scr_act());
-    lv_obj_set_size(page_device, 480, 240);
-
-    device_label_name = lv_label_create(page_device);
-    lv_obj_align(device_label_name, LV_ALIGN_TOP_LEFT, 10, 10);
-
-    device_label_port = lv_label_create(page_device);
-    lv_obj_align(device_label_port, LV_ALIGN_TOP_LEFT, 10, 40);
-
-    device_label_temp = lv_label_create(page_device);
-    lv_obj_align(device_label_temp, LV_ALIGN_TOP_LEFT, 10, 70);
-
-    // Change port button
-    lv_obj_t *btn_port = lv_btn_create(page_device);
-    lv_obj_set_size(btn_port, 150, 40);
-    lv_obj_align(btn_port, LV_ALIGN_TOP_LEFT, 10, 100);
-
-    lv_obj_t *lbl_port = lv_label_create(btn_port);
-    lv_label_set_text(lbl_port, "Change Port");
-    lv_obj_center(lbl_port);
-
-    // Back button
-    lv_obj_t *btn_back = lv_btn_create(page_device);
-    lv_obj_set_size(btn_back, 100, 40);
-    lv_obj_align(btn_back, LV_ALIGN_TOP_LEFT, 10, 150);
-    lv_obj_add_event_cb(btn_back, goto_diag, LV_EVENT_CLICKED, NULL);
-
-    lv_obj_t *lbl_back = lv_label_create(btn_back);
-    lv_label_set_text(lbl_back, "Back");
-    lv_obj_center(lbl_back);
-}
-
-void Setup_lvgl_selector() {
-    build_auton_page();
-    build_editor_page();
-    build_diag_page();
-    build_device_page();
-
-    // Start on auton page
-    show_page(page_auton);
-}
-
-
-/*
-
-Old Auton Selector Code Below
-
-*/
 
 void selector() {
     loadautonsettingsFromFile(); // Load the auton settings from file
@@ -934,3 +910,5 @@ void update_screen(int update_mode) {
   }
   screenUpdating = false;
 }
+
+#endif

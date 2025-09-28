@@ -15,7 +15,6 @@ int screencooldown = 0; // Cooldown for screen updates
 pros::screen_touch_status_s_t status; // Variable to store touch status
 int last_screen = 0; // Variable to store the last screen for debugging
 bool running = false; // Flag to prevent multiple autons from running simultaneously
-int autonCountOld = autonOptions.size(); // Variable to store the number of available autonomous routines
 
 /////////////////////////////////////////////
 //             Basic Functions             //
@@ -122,20 +121,6 @@ MotorWrapper* findMotorByLetter(char letter) { // Function to find a MotorWrappe
         }
     }
     return nullptr;  // Return null if not found
-}
-
-int getAutonIndexByFileID(int fileID) {
-    for (size_t i = 0; i < autonOptions.size(); i++) {
-        if (autonOptions[i].getFileNumber() == fileID) return i;
-    }
-    return -1; // Error case
-}
-
-Auton getAutonByName(const std::string& name) {
-    for (const auto& auton : autonOptions) {
-        if (auton.getName() == name) return auton; // Return the matching auton
-    }
-    return Auton("Invalid", pros::Color::black); // Return an error indicator: an empty or invalid auton
 }
 
 /////////////////////////////////////////////
