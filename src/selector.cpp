@@ -14,6 +14,9 @@
 #include "liblvgl/lvgl.h"
 
 const char* selected_auton = NULL;
+const int TEMP_THRESHOLD = 50; // Temperature threshold for highlighting
+lv_obj_t *btn_diag;
+bool any_motor_over_temp = false;
 
 
 /////////////////////////////////////////////
@@ -182,22 +185,20 @@ struct Device {
     std::string name;
     int port;
     bool is_motor;
+    bool is_drive;
 };
 
 std::vector<Device> devices = {
-    {"Left Front Drive Motor", 1, true},
-    {"Left Middle Drive Motor", 1, true},
-    {"Left Back Drive Motor", 1, true},
-    {"Right Front Drive Motor", 1, true},
-    {"Right Middle Drive Motor", 1, true},
-    {"Right back Drive Motor", 2, true},
+    {"Left Front Drive Motor", 1, true, true},
+    {"Left Middle Drive Motor", 1, true, true},
+    {"Left Back Drive Motor", 1, true, true},
+    {"Right Front Drive Motor", 1, true, true},
+    {"Right Middle Drive Motor", 1, true, true},
+    {"Right back Drive Motor", 2, true, true},
     {"Intake Motor 1", 3, true},
     {"Intake Motor 2", 3, true},
     {"Intake Motor 3", 3, true},
-    {"Intake Motor 4", 3, true},
-    {"Inertial Sensor", 4, false},
-    {"Odom Pod Vertical", 5, false},
-    {"Odom Pod Horizontal", 5, false}
+    {"Intake Motor 4", 3, true}
 };
 
 // --- Utility: Show one page, hide others ---
@@ -256,6 +257,20 @@ static void goto_device(lv_event_t *e) {
 }
 
 // --- Page builders ---
+static void diag_btn_blink_timer(lv_timer_t *timer) {
+    if(!btn_diag) return;
+    static bool toggle = false;
+    if(any_motor_over_temp) {
+        // Toggle between red and default color
+        lv_color_t color = toggle ? lv_color_hsv_to_rgb(0,255,255) : lv_palette_main(LV_PALETTE_BLUE);
+        lv_obj_set_style_bg_color(btn_diag, color, 0);
+        toggle = !toggle;
+    } else {
+        lv_obj_set_style_bg_color(btn_diag, lv_palette_main(LV_PALETTE_BLUE), 0);
+    }
+    any_motor_over_temp = false; // reset for next check
+}
+
 void build_home_page() {
     page_home = lv_obj_create(lv_scr_act());
     lv_obj_set_size(page_home, 480, 240);
@@ -313,13 +328,14 @@ void build_home_page() {
     lv_obj_set_size(button_col, 220, LV_PCT(100));
     lv_obj_clear_flag(button_col, LV_OBJ_FLAG_SCROLLABLE);
 
-    lv_obj_t *btn_diag = lv_btn_create(button_col);
+    btn_diag = lv_btn_create(button_col);
     lv_obj_t *lbl_diag = lv_label_create(btn_diag);
     lv_label_set_text(lbl_diag, "Diagnostics");
     lv_obj_align(lbl_diag, LV_ALIGN_CENTER, 0, 0);
     lv_obj_set_pos(btn_diag, 0, 0);
     lv_obj_set_size(btn_diag, LV_PCT(100), 30);
     lv_obj_add_event_cb(btn_diag, goto_diag, LV_EVENT_CLICKED, NULL);
+    lv_timer_create(diag_btn_blink_timer, 500, nullptr);
     
     lv_obj_t *btn_ports = lv_btn_create(button_col);
     lv_obj_t *lbl_ports = lv_label_create(btn_ports);
@@ -343,6 +359,47 @@ void build_home_page() {
     lv_obj_set_size(btn_run, LV_PCT(100), 30);
 }
 
+struct MotorLabelData {
+    lv_obj_t *label;
+    int port;
+    int threshold;
+    lv_color_t default_color;
+    std::string name;
+};
+
+static void motor_blink_timer(lv_timer_t *timer) {
+    MotorLabelData *data = (MotorLabelData *)timer->user_data;
+
+    // Read motor temperature
+    pros::Motor m(data->port);
+    int temp = m.get_temperature();
+
+    // Update label text
+    if (!data->name.empty()) {
+        // Non-drive motors: include name
+        lv_label_set_text_fmt(data->label, "%s - %dC", data->name.c_str(), temp);
+    } else {
+        // Drive motors: just temp
+        lv_label_set_text_fmt(data->label, "%dC", temp);
+    }
+
+    // Blink if over threshold
+    if(temp >= data->threshold) {
+        any_motor_over_temp = true;
+        lv_color_t current_color = lv_obj_get_style_text_color(data->label, 0);
+        if(current_color.full == lv_color_hsv_to_rgb(0,255,255).full) { // currently red
+            lv_obj_set_style_text_color(data->label, data->default_color, 0);
+        } else {
+            lv_obj_set_style_text_color(data->label, lv_color_hsv_to_rgb(0,255,255), 0);
+        }
+    } else {
+        // Reset to default color if below threshold
+        lv_obj_set_style_text_color(data->label, data->default_color, 0);
+    }
+}
+
+
+
 void build_diag_page() {
     page_diag = lv_obj_create(lv_scr_act());
     lv_obj_set_size(page_diag, 480, 240);
@@ -351,27 +408,75 @@ void build_diag_page() {
     lv_obj_set_style_pad_all(page_diag, 0, 0);
     lv_obj_set_style_bg_opa(page_diag, LV_OPA_TRANSP, 0); // optional: transparent background
 
-    // Scrollable list
-    lv_obj_t *list = lv_obj_create(page_diag);
-    lv_obj_set_size(list, 480, 170);
-    lv_obj_set_pos(list, 5, 0);
-    lv_obj_set_flex_flow(list, LV_FLEX_FLOW_COLUMN);
+    // Main horizontal container: left = motors, right = other items
+    lv_obj_t *main_area = lv_obj_create(page_diag);
+    lv_obj_set_size(main_area, 480, 240);
+    lv_obj_set_pos(main_area, 0, 0);
+    lv_obj_set_flex_flow(main_area, LV_FLEX_FLOW_ROW);
+    lv_obj_set_style_pad_all(main_area, 5, 0);
+    lv_obj_clear_flag(main_area, LV_OBJ_FLAG_SCROLLABLE);
 
-    for (auto &dev : devices) {
-        lv_obj_t *lbl = lv_label_create(list);
-        if (dev.is_motor) {
-            pros::Motor m(dev.port);
-            int temp = m.get_temperature();
-            lv_label_set_text_fmt(lbl, "%s (Port %d) - %dC", dev.name.c_str(), dev.port, temp);
+    // Left side container: vertical stack for drivetrain label + motor boxes
+    lv_obj_t *left_col = lv_obj_create(main_area);
+    lv_obj_set_size(left_col, LV_PCT(40), LV_PCT(80)); // half width of main area
+    lv_obj_set_flex_flow(left_col, LV_FLEX_FLOW_COLUMN); // stack children vertically
+    lv_obj_set_style_pad_all(left_col, 0, 0);
+    lv_obj_clear_flag(left_col, LV_OBJ_FLAG_SCROLLABLE);
+
+    // Drivetrain label at top
+    lv_obj_t *drivetrain_lbl = lv_label_create(left_col);
+    lv_label_set_text(drivetrain_lbl, "Drivetrain Motors:");
+
+    // Motor grid below label
+    lv_obj_t *motor_grid = lv_obj_create(left_col);
+    lv_obj_set_size(motor_grid, LV_PCT(100), LV_PCT(80)); // fill width of left_col
+    lv_obj_set_flex_flow(motor_grid, LV_FLEX_FLOW_ROW_WRAP); // wrap items
+    lv_obj_set_style_pad_all(motor_grid, 3, 0);
+    lv_obj_set_style_pad_gap(motor_grid, 3, 0); // gap between boxes
+    lv_obj_clear_flag(motor_grid, LV_OBJ_FLAG_SCROLLABLE);
+
+    // Right side: other diagnostic items
+    lv_obj_t *other_col = lv_obj_create(main_area);
+    lv_obj_set_size(other_col, 240, LV_PCT(100));
+    lv_obj_set_flex_flow(other_col, LV_FLEX_FLOW_COLUMN);
+    lv_obj_set_style_pad_all(other_col, 5, 0);
+
+    for (int i = 0; i < devices.size(); i++) {
+        if (!devices[i].is_motor) continue;
+        lv_obj_t *lbl;
+        if(devices[i].is_drive) {
+            lv_obj_t *motor_box = lv_obj_create(motor_grid);
+            lv_obj_set_size(motor_box, LV_PCT(48), LV_PCT(33));
+            lv_obj_clear_flag(motor_box, LV_OBJ_FLAG_SCROLLABLE);
+            lv_obj_set_style_bg_color(motor_box, lv_color_hsv_to_rgb(280,255,255), 0);
+            lv_obj_set_style_pad_all(motor_box, 5, 0);
+            lbl = lv_label_create(motor_box);
+            lv_obj_center(lbl);
         } else {
-            lv_label_set_text_fmt(lbl, "%s (Port %d)", dev.name.c_str(), dev.port);
+            lbl = lv_label_create(other_col);
+            lv_obj_center(lbl);
         }
-        lv_obj_center(lbl);
+        pros::Motor m(devices[i].port);
+        int temp = m.get_temperature();
+        // Initial text
+        if(devices[i].is_drive) {
+            lv_label_set_text_fmt(lbl, "%dC", temp);
+        } else {
+            lv_label_set_text_fmt(lbl, "%s - %dC", devices[i].name.c_str(), temp);
+        }
+        // Timer data
+        MotorLabelData *data = new MotorLabelData;
+        data->label = lbl;
+        data->port = devices[i].port;
+        data->threshold = TEMP_THRESHOLD;
+        data->default_color = lv_color_white();
+        if(!devices[i].is_drive) data->name = devices[i].name; // only set name for non-drive motors
+        lv_timer_create(motor_blink_timer, 500, data);
     }
 
     // Back button
     lv_obj_t *btn_back = lv_btn_create(page_diag);
-    lv_obj_set_size(btn_back, 100, 40);
+    lv_obj_set_size(btn_back, 190, 40);
     lv_obj_set_pos(btn_back, 5, 190);
     lv_obj_add_event_cb(btn_back, goto_home, LV_EVENT_CLICKED, NULL);
 
