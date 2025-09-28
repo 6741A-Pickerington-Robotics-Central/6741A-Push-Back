@@ -257,20 +257,6 @@ static void goto_device(lv_event_t *e) {
 }
 
 // --- Page builders ---
-static void diag_btn_blink_timer(lv_timer_t *timer) {
-    if(!btn_diag) return;
-    static bool toggle = false;
-    if(any_motor_over_temp) {
-        // Toggle between red and default color
-        lv_color_t color = toggle ? lv_color_hsv_to_rgb(0,255,255) : lv_palette_main(LV_PALETTE_BLUE);
-        lv_obj_set_style_bg_color(btn_diag, color, 0);
-        toggle = !toggle;
-    } else {
-        lv_obj_set_style_bg_color(btn_diag, lv_palette_main(LV_PALETTE_BLUE), 0);
-    }
-    any_motor_over_temp = false; // reset for next check
-}
-
 void build_home_page() {
     page_home = lv_obj_create(lv_scr_act());
     lv_obj_set_size(page_home, 480, 240);
@@ -335,7 +321,6 @@ void build_home_page() {
     lv_obj_set_pos(btn_diag, 0, 0);
     lv_obj_set_size(btn_diag, LV_PCT(100), 30);
     lv_obj_add_event_cb(btn_diag, goto_diag, LV_EVENT_CLICKED, NULL);
-    lv_timer_create(diag_btn_blink_timer, 500, nullptr);
     
     lv_obj_t *btn_ports = lv_btn_create(button_col);
     lv_obj_t *lbl_ports = lv_label_create(btn_ports);
@@ -367,38 +352,45 @@ struct MotorLabelData {
     std::string name;
 };
 
+std::vector<MotorLabelData> motor_labels;
+
 static void motor_blink_timer(lv_timer_t *timer) {
-    MotorLabelData *data = (MotorLabelData *)timer->user_data;
+    any_motor_over_temp = false; // reset flag
 
-    // Read motor temperature
-    pros::Motor m(data->port);
-    int temp = m.get_temperature();
-
-    // Update label text
-    if (!data->name.empty()) {
-        // Non-drive motors: include name
-        lv_label_set_text_fmt(data->label, "%s - %dC", data->name.c_str(), temp);
-    } else {
-        // Drive motors: just temp
-        lv_label_set_text_fmt(data->label, "%dC", temp);
-    }
-
-    // Blink if over threshold
-    if(temp >= data->threshold) {
-        any_motor_over_temp = true;
-        lv_color_t current_color = lv_obj_get_style_text_color(data->label, 0);
-        if(current_color.full == lv_color_hsv_to_rgb(0,255,255).full) { // currently red
-            lv_obj_set_style_text_color(data->label, data->default_color, 0);
+    for (auto &data : motor_labels) {
+        pros::Motor m(data.port);
+        int temp = m.get_temperature();
+        // Update label text
+        if (!data.name.empty()) {
+            lv_label_set_text_fmt(data.label, "%s - %dC", data.name.c_str(), temp);
         } else {
-            lv_obj_set_style_text_color(data->label, lv_color_hsv_to_rgb(0,255,255), 0);
+            lv_label_set_text_fmt(data.label, "%dC", temp);
         }
+        // Blink if over threshold
+        if (temp >= data.threshold) {
+            any_motor_over_temp = true;
+            lv_color_t current_color = lv_obj_get_style_text_color(data.label, 0);
+            if(current_color.full == lv_color_hsv_to_rgb(0,255,255).full) {
+                lv_obj_set_style_text_color(data.label, data.default_color, 0);
+            } else {
+                lv_obj_set_style_text_color(data.label, lv_color_hsv_to_rgb(0,255,255), 0);
+            }
+        } else {
+            // Reset to default color if below threshold
+            lv_obj_set_style_text_color(data.label, data.default_color, 0);
+        }
+    }
+    // Update diagnostics button color
+    if(!btn_diag) return;
+    static bool toggle = false;
+    if(any_motor_over_temp) {
+        lv_color_t color = toggle ? lv_color_hsv_to_rgb(0,255,255) : lv_palette_main(LV_PALETTE_BLUE);
+        lv_obj_set_style_bg_color(btn_diag, color, 0);
+        toggle = !toggle;
     } else {
-        // Reset to default color if below threshold
-        lv_obj_set_style_text_color(data->label, data->default_color, 0);
+        lv_obj_set_style_bg_color(btn_diag, lv_palette_main(LV_PALETTE_BLUE), 0);
     }
 }
-
-
 
 void build_diag_page() {
     page_diag = lv_obj_create(lv_scr_act());
@@ -471,8 +463,10 @@ void build_diag_page() {
         data->threshold = TEMP_THRESHOLD;
         data->default_color = lv_color_white();
         if(!devices[i].is_drive) data->name = devices[i].name; // only set name for non-drive motors
-        lv_timer_create(motor_blink_timer, 500, data);
+        motor_labels.push_back(*data);
     }
+
+    lv_timer_create(motor_blink_timer, 500, nullptr);
 
     // Back button
     lv_obj_t *btn_back = lv_btn_create(page_diag);
