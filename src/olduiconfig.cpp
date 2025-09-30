@@ -1,4 +1,4 @@
-
+#if 0
 //Auton Editor and Selector Settings
 
 bool debug = true; // Debug flag for screen interactions
@@ -42,3 +42,4 @@ const char temp3name[] = "Intake:";
 pros::MotorGroup temp3({-13,-10}); // Motors for temperature line 3
 const char temp4name[] = "LadyBrown:";
 pros::MotorGroup temp4({-14,15}); // Motors for temperature line 4
+#endif

@@ -2,11 +2,12 @@
 #include "p_selector.h" // Include the selector header for the auton selector
 #include "pros/misc.hpp"
 #include "liblvgl/lvgl.h"
+#include <map>
 
 void screenTaskFunction(); // Forward declaration of the screen task function
 
 pros::Controller controller(pros::E_CONTROLLER_MASTER); // Controller
-pros::MotorGroup leftMotors({16,18,-19},pros::MotorGearset::blue); // left motor group - ports 3 (reversed), 4, 5 (reversed)
+pros::MotorGroup leftMotors({16,18,-19}, pros::MotorGearset::blue); // left motor group - ports 3 (reversed), 4, 5 (reversed)
 pros::MotorGroup rightMotors({-15,-13,11}, pros::MotorGearset::blue); // right motor group - ports 6, 7, 9 (reversed)
 pros::Imu imu(16); // Inertial Sensor on port 16
 pros::Rotation horizontalEnc(15); // Horizontal tracking wheel encoder.
@@ -84,24 +85,7 @@ int weedwackercooldown = 0; // Cooldown timer for weedwacker toggle
 //        Dynamic Ports         //
 //////////////////////////////////
 
-void loadPortConfig(const std::string& filename = "/usd/port_config.txt") {
-    std::ifstream file(filename);
-    std::string line;
-    while (std::getline(file, line)) {
-        if (line.empty() || line[0] == '#') continue;
-        std::istringstream iss(line);
-        std::string key; int port;
-        if (std::getline(iss, key, '=') && iss >> port) {
-            portMap[key] = port;
-        }
-    }
-}
 
-void initDevices() {
-    left_drive  = new pros::Motor(portMap["left_drive"]);
-    right_drive = new pros::Motor(portMap["right_drive"]);
-    imu         = new pros::Imu(portMap["imu"]);
-}
 
 
 //////////////////////////////////
@@ -113,7 +97,6 @@ void skills_auton() {
 }
 
 void initialize() {
-    initDevices(); // Initialize devices with dynamic ports
     chassis.calibrate(); // Calibrate sensors
     //pros::Task screenTask(screenTaskFunction); // Start the screen task for debugging
     //pros::Task selector_task(selector); // Run the auton selector in a separate task
