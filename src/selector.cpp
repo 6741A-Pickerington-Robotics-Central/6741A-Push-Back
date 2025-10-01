@@ -490,7 +490,9 @@ static void ta_event_cb(lv_event_t * e) {
 
     if(code == LV_EVENT_FOCUSED) {
         lv_keyboard_set_textarea(keyboard, ta);
-        lv_obj_clear_flag(keyboard, LV_OBJ_FLAG_HIDDEN);
+        if (keyboard && lv_obj_is_valid(keyboard)) {
+            lv_obj_clear_flag(keyboard, LV_OBJ_FLAG_HIDDEN);
+        }
     }
     else if(code == LV_EVENT_DEFOCUSED) {
         lv_keyboard_set_textarea(keyboard, NULL);
