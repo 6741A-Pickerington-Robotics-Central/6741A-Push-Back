@@ -335,6 +335,7 @@ void build_home_page() {
     lv_label_set_text(lbl_editor, "Auton Editor");
     lv_obj_set_pos(btn_editor, 0, 80);
     lv_obj_set_size(btn_editor, LV_PCT(100), 30);
+    lv_obj_add_event_cb(btn_editor, goto_editor, LV_EVENT_CLICKED, NULL);
 
     lv_obj_t *btn_run = lv_btn_create(button_col);
     lv_obj_t *lbl_run = lv_label_create(btn_run);
@@ -479,24 +480,115 @@ void build_diag_page() {
     lv_obj_center(lbl_back);
 }
 
+lv_obj_t *list_container;
+std::vector<std::string> commandList;
+lv_obj_t *keyboard;
+
+static void ta_event_cb(lv_event_t * e) {
+    lv_event_code_t code = lv_event_get_code(e);
+    lv_obj_t * ta = lv_event_get_target(e);
+
+    if(code == LV_EVENT_FOCUSED) {
+        lv_keyboard_set_textarea(keyboard, ta);
+        lv_obj_clear_flag(keyboard, LV_OBJ_FLAG_HIDDEN);
+    }
+    else if(code == LV_EVENT_DEFOCUSED) {
+        lv_keyboard_set_textarea(keyboard, NULL);
+        lv_obj_add_flag(keyboard, LV_OBJ_FLAG_HIDDEN);
+    }
+}
+
+lv_obj_t* create_move_command_row(lv_obj_t* parent, double x, double y, double z) {
+    lv_obj_t *row = lv_obj_create(parent);
+    lv_obj_set_size(row, lv_pct(100), LV_SIZE_CONTENT);
+    lv_obj_set_flex_flow(row, LV_FLEX_FLOW_ROW);
+    lv_obj_set_style_pad_row(row, 5, 0);
+    lv_obj_set_style_pad_column(row, 5, 0);
+
+    lv_obj_t *lbl = lv_label_create(row);
+    lv_label_set_text(lbl, "Move robot to:");
+
+    // X, Y, Z textareas
+    auto make_field = [&](const char *placeholder, double val) -> lv_obj_t* {
+        lv_obj_t *ta = lv_textarea_create(row);
+        lv_obj_set_width(ta, 50);
+        lv_textarea_set_one_line(ta, true);
+        lv_textarea_set_placeholder_text(ta, placeholder);
+
+        char buf[16];
+        snprintf(buf, sizeof(buf), "%.1f", val);
+        lv_textarea_set_text(ta, buf);
+        lv_obj_add_event_cb(ta, ta_event_cb, LV_EVENT_ALL, NULL);
+        return ta;
+    };
+
+    make_field("x", x);
+    make_field("y", y);
+    make_field("z", z);
+
+    return row;
+}
+
+// Callback for the "Add Command" button in the editor page
+static void add_command_event(lv_event_t *e) {
+    commandList.push_back("m0,0,0");
+
+    // Create a new row in the container
+    create_move_command_row(list_container, 0, 0, 0);
+
+    // Optionally scroll to bottom so the new row is visible
+    lv_obj_scroll_to_y(list_container, lv_obj_get_height(list_container), LV_ANIM_ON);
+}
+
+
+
+void add_keyboard(lv_obj_t *parent) {
+    keyboard = lv_keyboard_create(parent);
+    lv_obj_set_size(keyboard, 480, 120);
+    lv_obj_align(keyboard, LV_ALIGN_BOTTOM_MID, 0, 0);
+    lv_obj_add_flag(keyboard, LV_OBJ_FLAG_HIDDEN); // Start hidden
+}
+
+
 void build_editor_page() {
     page_editor = lv_obj_create(lv_scr_act());
     lv_obj_set_size(page_editor, 480, 240);
     lv_obj_clear_flag(page_editor, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_set_style_border_width(page_editor, 0, 0);
+    lv_obj_set_style_pad_all(page_editor, 0, 0);
+    lv_obj_set_style_bg_opa(page_editor, LV_OPA_TRANSP, 0);
 
-    lv_obj_t *label = lv_label_create(page_editor);
-    lv_label_set_text(label, "Auton Editor");
-    lv_obj_align(label, LV_ALIGN_TOP_LEFT, 10, 10);
+    // Container for the list of commands
+    list_container = lv_obj_create(page_editor);
+    lv_obj_set_size(list_container, 395, 210);
+    lv_obj_set_pos(list_container, 5, 5);
+    lv_obj_set_flex_flow(list_container, LV_FLEX_FLOW_COLUMN);
+    lv_obj_clear_flag(list_container, LV_OBJ_FLAG_SCROLLABLE); // Turn off scroll
 
+    // Add button
+    lv_obj_t *btn_add = lv_btn_create(page_editor);
+    lv_obj_set_size(btn_add, 70, 40);
+    lv_obj_set_pos(btn_add, 405, 5);
+    lv_obj_add_event_cb(btn_add, add_command_event, LV_EVENT_CLICKED, NULL);
+    lv_obj_t *lbl_add = lv_label_create(btn_add);
+    lv_label_set_text(lbl_add, "Add");
+    lv_obj_center(lbl_add);
+
+    // Remove button
+    lv_obj_t *btn_remove = lv_btn_create(page_editor);
+    lv_obj_set_size(btn_remove, 70, 40);
+    lv_obj_set_pos(btn_remove, 405, 50);
+    lv_obj_add_event_cb(btn_remove, add_command_event, LV_EVENT_CLICKED, NULL);
+    lv_obj_t *lbl_remove = lv_label_create(btn_remove);
+    lv_label_set_text(lbl_remove, "Del");
+    lv_obj_center(lbl_remove);
+    
     // Back button
     lv_obj_t *btn_back = lv_btn_create(page_editor);
-    lv_obj_set_size(btn_back, 100, 40);
-    lv_obj_align(btn_back, LV_ALIGN_TOP_LEFT, 10, 190); // bottom-ish
+    lv_obj_set_size(btn_back, 70, 30);
+    lv_obj_set_pos(btn_back, 405, 200);
     lv_obj_add_event_cb(btn_back, goto_home, LV_EVENT_CLICKED, NULL);
-
-    lv_obj_t *lbl_back = lv_label_create(btn_back);
-    lv_label_set_text(lbl_back, "Back");
-    lv_obj_center(lbl_back);
+    lv_label_set_text(lv_label_create(btn_back), "Home");
 }
 
 void build_device_page() {

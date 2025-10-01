@@ -54,7 +54,7 @@ extern int sidecolor; // Variable to store the color of the selected autonomous 
 extern int screen; // Variable to track the current screen (1 for auton bar, 2 for auton editor)
 extern bool screenUpdating; // Flag to prevent multiple screen updates
 extern int saving; // Variable to track the saving state (0 for not saving, 1 for saving, 2 for saved)
-extern int keyboard; // Variable to track the current keyboard layout (1 for numbers, 2 for drive letters, 3 for other letters)
+//extern int keyboard; // Variable to track the current keyboard layout (1 for numbers, 2 for drive letters, 3 for other letters)
 extern int selectedline; // Variable to track the selected line in the auton editor
 extern int save_timer; // Timer for saving state
 extern int screencooldown; // Cooldown for screen updates
