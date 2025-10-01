@@ -69,10 +69,9 @@ lemlib::Chassis chassis(drivetrain, linearController, angularController, sensors
 //////////////////////////////////
 
 // Motor declarations
-pros::Motor Intake1(7, pros::v5::MotorGears::green);  // 3 chain/lower
-pros::Motor Intake2(4, pros::v5::MotorGears::green);  // lower roller
-pros::Motor Intake3(1, pros::v5::MotorGears::green);  // upper roller
-pros::Motor Intake4(10, pros::v5::MotorGears::green);  // 2 chain/top
+pros::Motor Intake1(-3, pros::v5::MotorGears::green);  // first
+pros::Motor Intake2(10, pros::v5::MotorGears::green);  // middle
+pros::Motor Intake3(8, pros::v5::MotorGears::green);  // top
 
 
 // Digital outputs
@@ -119,41 +118,28 @@ void opcontrol() {
         chassis.tank(leftY, rightX);
         // Intake Controls
         if (controller.get_digital(pros::E_CONTROLLER_DIGITAL_B)) {
-            Intake1.move_velocity(-200);
+            Intake1.move_velocity(200);
             Intake2.move_velocity(200);
-            Intake3.move_velocity(50);
-            //Intake4.move_velocity(200);
-        } else if (controller.get_digital(pros::E_CONTROLLER_DIGITAL_Y)) {
-            Intake1.move_velocity(-200);
-            Intake2.move_velocity(-200);
             Intake3.move_velocity(-200);
-            Intake4.move_velocity(200);
+        } else if (controller.get_digital(pros::E_CONTROLLER_DIGITAL_Y)) {
+            Intake1.move_velocity(200);
+            Intake2.move_velocity(200);
+            Intake3.move_velocity(200);
         } else if (controller.get_digital(pros::E_CONTROLLER_DIGITAL_DOWN)) {
             Intake1.move_velocity(-200);
             Intake2.move_velocity(-200);
             Intake3.move_velocity(-200);
-            Intake4.move_velocity(-200);
-        } else if (controller.get_digital(pros::E_CONTROLLER_DIGITAL_LEFT)) {
-            Intake1.move_velocity(200);
-            Intake2.move_velocity(-200);
-            Intake3.move_velocity(200);
-            Intake4.move_velocity(-200);
         } else {
             Intake1.move_velocity(0);
             Intake2.move_velocity(0);
             Intake3.move_velocity(0);
-            Intake4.move_velocity(0);
         }
         // Weedwacker Controls
-        if (weedwackercooldown < 0) {
-            if (controller.get_digital(pros::E_CONTROLLER_DIGITAL_A)) {
-                if (weedwackerState) Weedwacker.set_value(0);
-                else Weedwacker.set_value(1);
-                weedwackerState = !weedwackerState;
-                weedwackercooldown = 20; // Set cooldown to prevent rapid toggling
-            }
-        } else {
-            weedwackercooldown--;
+        if (controller.get_digital(pros::E_CONTROLLER_DIGITAL_R2)) {
+            Weedwacker.set_value(1);
+        }
+        if (controller.get_digital(pros::E_CONTROLLER_DIGITAL_R1)) {
+            Weedwacker.set_value(0);
         }
         
         if (controller.get_digital(pros::E_CONTROLLER_DIGITAL_L1)) {
