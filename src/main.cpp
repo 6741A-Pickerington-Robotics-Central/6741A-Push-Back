@@ -97,10 +97,11 @@ void skills_auton() {
 
 void initialize() {
     chassis.calibrate(); // Calibrate sensors
-    pros::Task screenTask(screenTaskFunction); // Start the screen task for debugging
-    //pros::Task selector_task(selector); // Run the auton selector in a separate task
-    //runauton(); 
-    //Setup_lvgl_selector(); // Setup the LVGL based auton selector
+    bool pidtuning = false; // Set to true to enable the PID tuning screen
+    bool runonstart = false; // Set to true to run the selected auton on start
+    if (pidtuning) pros::Task screenTask(screenTaskFunction); // Start the screen task for debugging
+    else Setup_lvgl_selector(); // Setup the LVGL based auton selector
+    if (runonstart) runauton(); // Run the selected auton if runonstart is true
 }
 
 void disabled() {}
