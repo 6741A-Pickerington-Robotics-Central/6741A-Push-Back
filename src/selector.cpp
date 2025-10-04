@@ -165,7 +165,6 @@ void runtxtauton(std::vector<std::string> list) {
 lv_obj_t *page_home;
 lv_obj_t *page_editor;
 lv_obj_t *page_diag;
-lv_obj_t *page_device;
 
 // For device details
 lv_obj_t *device_label_name;
@@ -199,12 +198,11 @@ void show_page(lv_obj_t *page) {
     lv_obj_add_flag(page_home, LV_OBJ_FLAG_HIDDEN);
     lv_obj_add_flag(page_editor, LV_OBJ_FLAG_HIDDEN);
     lv_obj_add_flag(page_diag, LV_OBJ_FLAG_HIDDEN);
-    lv_obj_add_flag(page_device, LV_OBJ_FLAG_HIDDEN);
 
     lv_obj_clear_flag(page, LV_OBJ_FLAG_HIDDEN);
 }
 
-// --- Event callbacks ---
+// --- Event callbacks for switch pages ---
 static void goto_home(lv_event_t *e) { show_page(page_home); }
 static void goto_editor(lv_event_t *e) { show_page(page_editor); }
 static void goto_diag(lv_event_t *e) { show_page(page_diag); }
@@ -226,29 +224,7 @@ void auton_btn_cb(lv_event_t * e) {
     lv_obj_update_layout(top_label);
 }
 
-// Device click handler
-static void goto_device(lv_event_t *e) {
-    Device *dev = (Device *)lv_event_get_user_data(e);
-    current_device_port = dev->port;
-    current_device_is_motor = dev->is_motor;
-
-    // Update labels
-    lv_label_set_text_fmt(device_label_name, "Device: %s", dev->name.c_str());
-    lv_label_set_text_fmt(device_label_port, "Port: %d", dev->port);
-
-    if (dev->is_motor) {
-        pros::Motor m(dev->port);
-        int temp = m.get_temperature();
-        lv_label_set_text_fmt(device_label_temp, "Temp: %d C", temp);
-        lv_obj_clear_flag(device_label_temp, LV_OBJ_FLAG_HIDDEN);
-    } else {
-        lv_obj_add_flag(device_label_temp, LV_OBJ_FLAG_HIDDEN);
-    }
-
-    show_page(page_device);
-}
-
-// --- Page builders ---
+// --- Home Page ---
 void build_home_page() {
     page_home = lv_obj_create(lv_scr_act());
     lv_obj_set_size(page_home, 480, 240);
@@ -337,6 +313,7 @@ void build_home_page() {
     lv_obj_set_size(btn_run, LV_PCT(100), 30);
 }
 
+// --- Diagnostics Page ---
 struct MotorLabelData {
     lv_obj_t *label;
     int port;
@@ -472,9 +449,26 @@ void build_diag_page() {
     lv_obj_center(lbl_back);
 }
 
+// --- Editor Page ---
+
+/*
+1. I do not like this code, need to change to my own keyboard implementation.
+    Use buttons to make a keypad
+    need keys 0-9 . and backspace
+    Use a label to show the typed text
+
+2. Make the screen actualy look good.
+    Bars for code lines
+    Add move up and down buttons
+    Add selecttion controls
+
+*/
+
 lv_obj_t *list_container;
 std::vector<std::string> commandList;
 static lv_obj_t *keyboard = nullptr;
+lv_obj_t *input_label;       // Shows typed characters
+std::string input_buffer = ""; // Stores the current typed text
 
 // Keymap rows, terminated by "" 
 // LV_SYMBOLs (like LV_SYMBOL_BACKSPACE) are built-in icons
@@ -493,6 +487,27 @@ static const lv_btnmatrix_ctrl_t custom_kb_ctrl[] = {
     1, 1, LV_BTNMATRIX_CTRL_CHECKED, // "." "0" "Del"
     LV_BTNMATRIX_CTRL_CHECKED,  // "Enter"
 };
+
+// Optional: handle keyboard's APPLY/READY key to hide it and defocus the textarea
+static void keyboard_event_cb(lv_event_t *e) {
+    lv_obj_t *kb = lv_event_get_target(e);
+    const char *txt = lv_btnmatrix_get_btn_text(kb, lv_btnmatrix_get_selected_btn(kb));
+    if (!txt) return;
+    if (strcmp(txt, "Enter") == 0) {
+        printf("Final input: %s\n", input_buffer.c_str());
+        // You could store input_buffer somewhere here
+        input_buffer.clear(); // clear after confirm
+    }
+    else if (strcmp(txt, "Del") == 0) {
+        if (!input_buffer.empty())
+            input_buffer.pop_back();
+    }
+    else { // normal character (0-9 or ".")
+        input_buffer += txt;
+    }
+    // Update label text
+    lv_label_set_text(input_label, input_buffer.c_str());
+}
 
 // Create keyboard (call once when building editor page, or rely on lazy init below)
 static void create_keyboard_if_needed(lv_obj_t *parent) {
@@ -520,24 +535,10 @@ static void create_keyboard_if_needed(lv_obj_t *parent) {
     lv_obj_set_size(keyboard, 240, 200);      // set overall size
     lv_obj_set_pos(keyboard, -120, 0);       // position below textarea
 
+    lv_obj_add_event_cb(keyboard, keyboard_event_cb, LV_EVENT_VALUE_CHANGED, NULL);
 }
 
-// Optional: handle keyboard's APPLY/READY key to hide it and defocus the textarea
-static void keyboard_event_cb(lv_event_t *e) {
-    lv_event_code_t code = lv_event_get_code(e);
-    if(code == LV_EVENT_VALUE_CHANGED) {
-        // You can check key pressed and hide keyboard accordingly.
-        // For simplicity, we hide on DEFAULT "Enter"/"OK" behavior:
-        const char *txt = lv_keyboard_get_textarea(e ? lv_event_get_target(e) : NULL) ? lv_textarea_get_text(lv_keyboard_get_textarea(lv_event_get_target(e))) : NULL;
-        // (not strictly necessary)
-    }
-    else if(code == LV_EVENT_CANCEL || code == LV_EVENT_DELETE) {
-        if(keyboard && lv_obj_is_valid(keyboard)) {
-            lv_keyboard_set_textarea(keyboard, NULL);
-            lv_obj_add_flag(keyboard, LV_OBJ_FLAG_HIDDEN);
-        }
-    }
-}
+
 
 static void ta_event_cb(lv_event_t * e) {
     lv_event_code_t code = lv_event_get_code(e);
@@ -596,22 +597,17 @@ lv_obj_t* create_move_command_row(lv_obj_t* parent, double x, double y, double z
     make_field("x", x);
     make_field("y", y);
     make_field("z", z);
-
     return row;
 }
 
 // Callback for the "Add Command" button in the editor page
 static void add_command_event(lv_event_t *e) {
     commandList.push_back("m0,0,0");
-
     // Create a new row in the container
     create_move_command_row(list_container, 0, 0, 0);
-
     // Optionally scroll to bottom so the new row is visible
     lv_obj_scroll_to_y(list_container, lv_obj_get_height(list_container), LV_ANIM_ON);
 }
-
-
 
 void add_keyboard(lv_obj_t *parent) {
     keyboard = lv_keyboard_create(parent);
@@ -619,7 +615,6 @@ void add_keyboard(lv_obj_t *parent) {
     lv_obj_align(keyboard, LV_ALIGN_BOTTOM_MID, 0, 0);
     lv_obj_add_flag(keyboard, LV_OBJ_FLAG_HIDDEN); // Start hidden
 }
-
 
 void build_editor_page() {
     page_editor = lv_obj_create(lv_scr_act());
@@ -663,48 +658,18 @@ void build_editor_page() {
 
 
     create_keyboard_if_needed(page_editor); // ensures keyboard exists and is parented safely
-}
-
-void build_device_page() {
-    page_device = lv_obj_create(lv_scr_act());
-    lv_obj_set_size(page_device, 480, 240);
-    lv_obj_clear_flag(page_device, LV_OBJ_FLAG_SCROLLABLE);
-
-    device_label_name = lv_label_create(page_device);
-    lv_obj_align(device_label_name, LV_ALIGN_TOP_LEFT, 10, 10);
-
-    device_label_port = lv_label_create(page_device);
-    lv_obj_align(device_label_port, LV_ALIGN_TOP_LEFT, 10, 40);
-
-    device_label_temp = lv_label_create(page_device);
-    lv_obj_align(device_label_temp, LV_ALIGN_TOP_LEFT, 10, 70);
-
-    // Change port button
-    lv_obj_t *btn_port = lv_btn_create(page_device);
-    lv_obj_set_size(btn_port, 150, 40);
-    lv_obj_align(btn_port, LV_ALIGN_TOP_LEFT, 10, 100);
-
-    lv_obj_t *lbl_port = lv_label_create(btn_port);
-    lv_label_set_text(lbl_port, "Change Port");
-    lv_obj_center(lbl_port);
-
-    // Back button
-    lv_obj_t *btn_back = lv_btn_create(page_device);
-    lv_obj_set_size(btn_back, 100, 40);
-    lv_obj_align(btn_back, LV_ALIGN_TOP_LEFT, 10, 150);
-    lv_obj_add_event_cb(btn_back, goto_diag, LV_EVENT_CLICKED, NULL);
-
-    lv_obj_t *lbl_back = lv_label_create(btn_back);
-    lv_label_set_text(lbl_back, "Back");
-    lv_obj_center(lbl_back);
+    // Label above keyboard
+    input_label = lv_label_create(page_editor);
+    lv_obj_set_width(input_label, 480);
+    lv_label_set_text(input_label, "");
+    lv_obj_set_style_text_align(input_label, LV_TEXT_ALIGN_LEFT, 0);
+    lv_obj_set_pos(input_label, 5, 5);
 }
 
 void Setup_lvgl_selector() {
     build_home_page();
     build_editor_page();
     build_diag_page();
-    build_device_page();
-
     // Start on auton page
     show_page(page_home);
 }
