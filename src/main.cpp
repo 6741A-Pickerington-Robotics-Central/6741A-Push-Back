@@ -9,15 +9,15 @@ void screenTaskFunction(); // Forward declaration of the screen task function
 pros::Controller controller(pros::E_CONTROLLER_MASTER); // Controller
 pros::MotorGroup leftMotors({16,18,-19}, pros::MotorGearset::blue); // left motor group - ports 3 (reversed), 4, 5 (reversed)
 pros::MotorGroup rightMotors({-15,-13,11}, pros::MotorGearset::blue); // right motor group - ports 6, 7, 9 (reversed)
-pros::Imu imu(16); // Inertial Sensor on port 16
-pros::Rotation horizontalEnc(15); // Horizontal tracking wheel encoder.
-pros::Rotation verticalEnc(11); // Vertical tracking wheel encoder.
+pros::Imu imu(7); // Inertial Sensor on port 16
+pros::Rotation horizontalEnc(4); // Horizontal tracking wheel encoder.
+pros::Rotation verticalEnc(5); // Vertical tracking wheel encoder.
 lemlib::TrackingWheel horizontal(&horizontalEnc, lemlib::Omniwheel::NEW_275, 1); // Horizontal tracking wheel.
 lemlib::TrackingWheel vertical(&verticalEnc, lemlib::Omniwheel::NEW_275, 2); // Vertical tracking wheel.
 // Drivetrain settings
 lemlib::Drivetrain drivetrain(&leftMotors, // left motor group
                               &rightMotors, // right motor group
-                              12.5, // 10 inch track width
+                              12, // 10 inch track width
                               lemlib::Omniwheel::NEW_325, // using new 4" omnis
                               480, // drivetrain rpm is 360
                               2 // horizontal drift is 2. If we had traction wheels, it would have been 8
@@ -34,15 +34,15 @@ lemlib::ControllerSettings linearController(40, // proportional gain (kP)
                                             0 // maximum acceleration (slew)
 );
 // Angular motion controller
-lemlib::ControllerSettings angularController(9, // proportional gain (kP)
+lemlib::ControllerSettings angularController(0.55, // proportional gain (kP)
                                              0, // integral gain (kI)
-                                             45, // derivative gain (kD)
+                                             0.20, // derivative gain (kD)
                                              0, // anti windup
                                              0, // small error range, in degrees
                                              0, // small error range timeout, in milliseconds
                                              0, // large error range, in degrees
                                              0, // large error range timeout, in milliseconds
-                                             0 // maximum acceleration (slew)
+                                             70 // maximum acceleration (slew)
 );
 // Sensors for odometry
 lemlib::OdomSensors sensors(&vertical, // vertical tracking wheel
@@ -97,10 +97,10 @@ void skills_auton() {
 
 void initialize() {
     chassis.calibrate(); // Calibrate sensors
-    //pros::Task screenTask(screenTaskFunction); // Start the screen task for debugging
+    pros::Task screenTask(screenTaskFunction); // Start the screen task for debugging
     //pros::Task selector_task(selector); // Run the auton selector in a separate task
     //runauton(); 
-    Setup_lvgl_selector(); // Setup the LVGL based auton selector
+    //Setup_lvgl_selector(); // Setup the LVGL based auton selector
 }
 
 void disabled() {}
@@ -108,6 +108,8 @@ void competition_initialize() {}
 
 void autonomous() {
   //runauton();
+  chassis.setPose(0, 0, 0); // Set position to x:0, y:0, heading:0
+  chassis.turnToHeading(90,1000000); // Turn to 90 degrees
 }
 
 void opcontrol() {
