@@ -7,20 +7,20 @@
 void screenTaskFunction(); // Forward declaration of the screen task function
 
 pros::Controller controller(pros::E_CONTROLLER_MASTER); // Controller
-pros::MotorGroup leftMotors({16,18,-19}, pros::MotorGearset::blue); // left motor group - ports 3 (reversed), 4, 5 (reversed)
-pros::MotorGroup rightMotors({-15,-13,11}, pros::MotorGearset::blue); // right motor group - ports 6, 7, 9 (reversed)
-pros::Imu imu(7); // Inertial Sensor on port 16
+pros::MotorGroup leftMotors({-16,-18,19}, pros::MotorGearset::blue); // left motor group
+pros::MotorGroup rightMotors({15,13,-11}, pros::MotorGearset::blue); // right motor group
+pros::Imu imu(7); // Inertial Sensor
 pros::Rotation horizontalEnc(4); // Horizontal tracking wheel encoder.
 pros::Rotation verticalEnc(5); // Vertical tracking wheel encoder.
 lemlib::TrackingWheel horizontal(&horizontalEnc, lemlib::Omniwheel::NEW_275, 1); // Horizontal tracking wheel.
-lemlib::TrackingWheel vertical(&verticalEnc, lemlib::Omniwheel::NEW_275, 2); // Vertical tracking wheel.
+lemlib::TrackingWheel vertical(&verticalEnc, lemlib::Omniwheel::NEW_275, 0); // Vertical tracking wheel.
 // Drivetrain settings
 lemlib::Drivetrain drivetrain(&leftMotors, // left motor group
                               &rightMotors, // right motor group
-                              12, // 10 inch track width
-                              lemlib::Omniwheel::NEW_325, // using new 4" omnis
-                              480, // drivetrain rpm is 360
-                              2 // horizontal drift is 2. If we had traction wheels, it would have been 8
+                              12, // track width
+                              lemlib::Omniwheel::NEW_325,
+                              480, // drivetrain rpm
+                              2 // horizontal drift
 );
 // Lateral motion controller
 lemlib::ControllerSettings linearController(40, // proportional gain (kP)
@@ -34,14 +34,14 @@ lemlib::ControllerSettings linearController(40, // proportional gain (kP)
                                             0 // maximum acceleration (slew)
 );
 // Angular motion controller
-lemlib::ControllerSettings angularController(0.55, // proportional gain (kP)
+lemlib::ControllerSettings angularController(0.50, // proportional gain (kP)
                                              0, // integral gain (kI)
-                                             0.20, // derivative gain (kD)
+                                             0.45, // derivative gain (kD)
                                              0, // anti windup
-                                             0, // small error range, in degrees
-                                             0, // small error range timeout, in milliseconds
-                                             0, // large error range, in degrees
-                                             0, // large error range timeout, in milliseconds
+                                             2, // small error range, in degrees
+                                             100, // small error range timeout, in milliseconds
+                                             4, // large error range, in degrees
+                                             500, // large error range timeout, in milliseconds
                                              70 // maximum acceleration (slew)
 );
 // Sensors for odometry
@@ -97,7 +97,7 @@ void skills_auton() {
 
 void initialize() {
     chassis.calibrate(); // Calibrate sensors
-    bool pidtuning = false; // Set to true to enable the PID tuning screen
+    bool pidtuning = true; // Set to true to enable the PID tuning screen
     bool runonstart = false; // Set to true to run the selected auton on start
     if (pidtuning) pros::Task screenTask(screenTaskFunction); // Start the screen task for debugging
     else Setup_lvgl_selector(); // Setup the LVGL based auton selector
@@ -110,29 +110,29 @@ void competition_initialize() {}
 void autonomous() {
   //runauton();
   chassis.setPose(0, 0, 0); // Set position to x:0, y:0, heading:0
-  chassis.turnToHeading(90,1000000); // Turn to 90 degrees
+  chassis.turnToHeading(90, 10000); // Turn to 90 degrees
 }
 
 void opcontrol() {
     while (true) {
-        // Get joystick positions
+        // Drivetrain Controls
         int leftY = controller.get_analog(pros::E_CONTROLLER_ANALOG_RIGHT_Y);
-        int rightX = controller.get_analog(pros::E_CONTROLLER_ANALOG_LEFT_Y);
-        chassis.tank(leftY, rightX);
+        int rightY = controller.get_analog(pros::E_CONTROLLER_ANALOG_LEFT_Y);
+        chassis.tank(-leftY, -rightY);
         // Intake Controls
-        if (controller.get_digital(pros::E_CONTROLLER_DIGITAL_B)) {
+        if (controller.get_digital(pros::E_CONTROLLER_DIGITAL_B)) { // Intake High Goal
             Intake1.move_velocity(200);
             Intake2.move_velocity(200);
             Intake3.move_velocity(-200);
-        } else if (controller.get_digital(pros::E_CONTROLLER_DIGITAL_Y)) {
+        } else if (controller.get_digital(pros::E_CONTROLLER_DIGITAL_Y)) { // Intake Middle Goal
             Intake1.move_velocity(200);
             Intake2.move_velocity(200);
             Intake3.move_velocity(200);
-        } else if (controller.get_digital(pros::E_CONTROLLER_DIGITAL_DOWN)) {
+        } else if (controller.get_digital(pros::E_CONTROLLER_DIGITAL_DOWN)) { // Outake
             Intake1.move_velocity(-200);
             Intake2.move_velocity(-200);
             Intake3.move_velocity(-200);
-        } else {
+        } else { // Stop Intake
             Intake1.move_velocity(0);
             Intake2.move_velocity(0);
             Intake3.move_velocity(0);
@@ -144,17 +144,14 @@ void opcontrol() {
         if (controller.get_digital(pros::E_CONTROLLER_DIGITAL_R1)) {
             Weedwacker.set_value(0);
         }
-        
+        // Descore and Ball Block Controls
         if (controller.get_digital(pros::E_CONTROLLER_DIGITAL_L1)) {
-            descore.set_value(true); // Top goal (use true/false for clarity)
-            std::cout << "Redirect to Goal\n";
+            descore.set_value(true); // Descore and Ball Block Active
         }
         if (controller.get_digital(pros::E_CONTROLLER_DIGITAL_L2)) {
-            descore.set_value(false); // Hopper
-            std::cout << "Redirect to Hopper\n";
+            descore.set_value(false); // Descore and Ball Block Deactive
         }
-        //std::cout << "Somethings Working\n";
-        pros::delay(10); // delay to save resources
+        pros::delay(20); // Delay to save system resources
     }
 }
 
@@ -164,14 +161,10 @@ void screenTaskFunction() {
     while (true) {
         pros::lcd::print(1, "Pose: (%.2f, %.2f, %.2f)", chassis.getPose().x, chassis.getPose().y, chassis.getPose().theta);
         pros::lcd::print(2, "Heading: %.2f", imu.get_heading());
-        pros::lcd::print(3, "Horizontal Encoder: %d", horizontalEnc.get_position());
-        pros::lcd::print(4, "Vertical Encoder: %d", verticalEnc.get_position());
-        lemlib::telemetrySink()->info("Chassis pose: {}", chassis.getPose());
-        pros::delay(50);// Delay to save resources
+        pros::lcd::print(3, "Horizontal Encoder: %i", horizontalEnc.get_position());
+        pros::lcd::print(4, "Vertical Encoder: %i", verticalEnc.get_position());
+        //lemlib::telemetrySink()->info("Chassis pose: {}", chassis.getPose());
+        std::cout << "H: " << horizontalEnc.get_position() << " V: " << verticalEnc.get_position() << " Chassis Theta: " << chassis.getPose().theta << " IMU: " << imu.get_heading() << "\n";
+        pros::delay(75);// Delay to save resources
     }
 }
-
-/////////////////////////////////////////////////
-//              pros terminal                  //
-// Run the above line to connect to the brain. //
-/////////////////////////////////////////////////
