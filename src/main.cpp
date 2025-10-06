@@ -7,8 +7,8 @@
 void screenTaskFunction(); // Forward declaration of the screen task function
 
 pros::Controller controller(pros::E_CONTROLLER_MASTER); // Controller
-pros::MotorGroup leftMotors({-16,-18,19}, pros::MotorGearset::blue); // left motor group
-pros::MotorGroup rightMotors({15,13,-11}, pros::MotorGearset::blue); // right motor group
+pros::MotorGroup rightMotors({16,18,-19}, pros::MotorGearset::blue); // left motor group
+pros::MotorGroup leftMotors({-15,-13,11}, pros::MotorGearset::blue); // right motor group
 pros::Imu imu(7); // Inertial Sensor
 pros::Rotation horizontalEnc(4); // Horizontal tracking wheel encoder.
 pros::Rotation verticalEnc(5); // Vertical tracking wheel encoder.
@@ -23,11 +23,11 @@ lemlib::Drivetrain drivetrain(&leftMotors, // left motor group
                               2 // horizontal drift
 );
 // Lateral motion controller
-lemlib::ControllerSettings linearController(5, // proportional gain (kP)
+lemlib::ControllerSettings linearController(6, // proportional gain (kP)
                                             0, // integral gain (kI)
                                             0.1, // derivative gain (kD)
                                             0, // anti windup
-                                            2, // small error range, in inches
+                                            1, // small error range, in inches
                                             100, // small error range timeout, in milliseconds
                                             0, // large error range, in inches
                                             0, // large error range timeout, in milliseconds
@@ -97,21 +97,18 @@ void skills_auton() {
 
 void initialize() {
     chassis.calibrate(); // Calibrate sensors
-    bool pidtuning = true; // Set to true to enable the PID tuning screen
+    bool pidtuning = false; // Set to true to enable the PID tuning screen
     bool runonstart = false; // Set to true to run the selected auton on start
     if (pidtuning) pros::Task screenTask(screenTaskFunction); // Start the screen task for debugging
     else Setup_lvgl_selector(); // Setup the LVGL based auton selector
     if (runonstart) runauton(); // Run the selected auton if runonstart is true
 }
 
-void disabled() {}
-void competition_initialize() {}
-
 void autonomous() {
   //runauton();
   chassis.setPose(0, 0, 0); // Set position to x:0, y:0, heading:0
   //chassis.turnToHeading(90, 10000); // Turn to 90 degrees
-  chassis.moveToPose(0, -30, 0, 10000, {.forwards = false}); // Move
+  chassis.moveToPose(0, 30, 90, 10000); // Move
   chassis.waitUntilDone();
 }
 
@@ -120,7 +117,7 @@ void opcontrol() {
         // Drivetrain Controls
         int leftY = controller.get_analog(pros::E_CONTROLLER_ANALOG_RIGHT_Y);
         int rightY = controller.get_analog(pros::E_CONTROLLER_ANALOG_LEFT_Y);
-        chassis.tank(-leftY, -rightY);
+        chassis.tank(rightY, leftY);
         // Intake Controls
         if (controller.get_digital(pros::E_CONTROLLER_DIGITAL_B)) { // Intake High Goal
             Intake1.move_velocity(200);
