@@ -75,7 +75,7 @@ pros::Motor Intake3(8, pros::v5::MotorGears::green);  // top
 
 
 // Digital outputs
-pros::adi::DigitalOut Weedwacker('A');
+pros::adi::DigitalOut weedwacker('A');
 pros::adi::DigitalOut descore('B'); // Redirects balls to either top goal or hopper
 bool weedwackerState = false; // State of the weedwacker
 int weedwackercooldown = 0; // Cooldown timer for weedwacker toggle
@@ -93,23 +93,30 @@ int weedwackercooldown = 0; // Cooldown timer for weedwacker toggle
 
 void skills_auton() {
     // Skills auton
+    chassis.moveToPose(2,45,-90,10000);
+    pros::delay(1000);
+    weedwacker.set_value(true);
+    descore.set_value(true);
+    pros::delay(100);
+    chassis.moveToPose(-7,45,-90,10000);
+
 }
 
 void initialize() {
     chassis.calibrate(); // Calibrate sensors
-    bool pidtuning = false; // Set to true to enable the PID tuning screen
-    bool runonstart = false; // Set to true to run the selected auton on start
+    bool pidtuning = true; // Set to true to enable the PID tuning screen
+    bool runonstart = true; // Set to true to run the selected auton on start
     if (pidtuning) pros::Task screenTask(screenTaskFunction); // Start the screen task for debugging
     else Setup_lvgl_selector(); // Setup the LVGL based auton selector
-    if (runonstart) runauton(); // Run the selected auton if runonstart is true
+    if (runonstart) skills_auton(); // Run the selected auton if runonstart is true
 }
 
 void autonomous() {
   //runauton();
   chassis.setPose(0, 0, 0); // Set position to x:0, y:0, heading:0
   //chassis.turnToHeading(90, 10000); // Turn to 90 degrees
-  chassis.moveToPose(0, 30, 90, 10000); // Move
-  chassis.waitUntilDone();
+  //chassis.moveToPose(0, 30, 0, 10000); // Move
+  //chassis.waitUntilDone();
 }
 
 void opcontrol() {
@@ -138,10 +145,10 @@ void opcontrol() {
         }
         // Weedwacker Controls
         if (controller.get_digital(pros::E_CONTROLLER_DIGITAL_R2)) {
-            Weedwacker.set_value(1);
+            weedwacker.set_value(1);
         }
         if (controller.get_digital(pros::E_CONTROLLER_DIGITAL_R1)) {
-            Weedwacker.set_value(0);
+            weedwacker.set_value(0);
         }
         // Descore and Ball Block Controls
         if (controller.get_digital(pros::E_CONTROLLER_DIGITAL_L1)) {
