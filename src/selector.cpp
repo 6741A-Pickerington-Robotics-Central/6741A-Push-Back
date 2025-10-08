@@ -464,158 +464,235 @@ void build_diag_page() {
 
 */
 
-lv_obj_t *list_container;
-std::vector<std::string> commandList;
-static lv_obj_t *keyboard = nullptr;
-lv_obj_t *input_label;       // Shows typed characters
-std::string input_buffer = ""; // Stores the current typed text
+// Track selection
+static int selected_index = 0;
+static int visible_offset = 0;
+static const int VISIBLE_COUNT = 3; // number of visible containers
+static lv_obj_t* list_inner;
+static char number_input[16];        // current typed number (as string)
+static lv_obj_t* active_button = NULL; // button that was clicked to open popup
 
-// Keymap rows, terminated by "" 
-// LV_SYMBOLs (like LV_SYMBOL_BACKSPACE) are built-in icons
-static const char * custom_kb_map[] = {
-    "1", "2", "3", "\n",    // row 1
-    "4", "5", "6", "\n",    // row 2
-    "7", "8", "9", "\n",    // row 3
-    ".", "0", LV_SYMBOL_BACKSPACE, "" // row 4 (then end)
-};
-
-// Optional: define control flags (makes some buttons wider, assigns styles)
-static const lv_btnmatrix_ctrl_t custom_kb_ctrl[] = {
-    1, 1, 1,                 // "1" "2" "3"
-    1, 1, 1,                 // "4" "5" "6"
-    1, 1, 1,                 // "7" "8" "9"
-    1, 1, LV_BTNMATRIX_CTRL_CHECKED, // "." "0" "Del"
-    LV_BTNMATRIX_CTRL_CHECKED,  // "Enter"
-};
-
-// Optional: handle keyboard's APPLY/READY key to hide it and defocus the textarea
-static void keyboard_event_cb(lv_event_t *e) {
-    lv_obj_t *kb = lv_event_get_target(e);
-    const char *txt = lv_btnmatrix_get_btn_text(kb, lv_btnmatrix_get_selected_btn(kb));
-    if (!txt) return;
-    if (strcmp(txt, "Enter") == 0) {
-        printf("Final input: %s\n", input_buffer.c_str());
-        // You could store input_buffer somewhere here
-        input_buffer.clear(); // clear after confirm
+// Open a popup to enter a number
+void number_key_event(lv_event_t* e) {
+    lv_obj_t* btn = lv_event_get_target(e);
+    const char* digit = lv_label_get_text(lv_obj_get_child(btn, 0));
+    int len = strlen(number_input);
+    if (len < 15) {
+        number_input[len] = digit[0];
+        number_input[len+1] = '\0';
     }
-    else if (strcmp(txt, "Del") == 0) {
-        if (!input_buffer.empty())
-            input_buffer.pop_back();
-    }
-    else { // normal character (0-9 or ".")
-        input_buffer += txt;
-    }
-    // Update label text
-    lv_label_set_text(input_label, input_buffer.c_str());
+    // update popup display
+    lv_obj_t* popup_label = (lv_obj_t*)lv_event_get_user_data(e);
+    lv_label_set_text(popup_label, number_input);
 }
 
-// Create keyboard (call once when building editor page, or rely on lazy init below)
-static void create_keyboard_if_needed(lv_obj_t *parent) {
-    if (keyboard && lv_obj_is_valid(keyboard)) return;
-    // parent should be a screen or persistent container. Use lv_scr_act() to be safe across pages:
-    lv_obj_t *kbd_parent = parent ? parent : lv_scr_act();
-    keyboard = lv_keyboard_create(kbd_parent);
-    lv_obj_set_size(keyboard, 480, 120);
-    lv_obj_align(keyboard, LV_ALIGN_BOTTOM_MID, 0, 0);
-    lv_obj_add_flag(keyboard, LV_OBJ_FLAG_HIDDEN);
-    // Set custom keymap
-    lv_keyboard_set_map(keyboard, LV_KEYBOARD_MODE_USER_1, custom_kb_map, custom_kb_ctrl);
-    // Force keyboard to use this custom mode
-    lv_keyboard_set_mode(keyboard, LV_KEYBOARD_MODE_USER_1);
-    // Set custom grid to make keys taller and less wide
-
-    // Widths: 3 equal columns, Height: 5 equal rows
-    static lv_coord_t col_dsc[] = {80, 80, 80, LV_GRID_TEMPLATE_LAST};
-    static lv_coord_t row_dsc[] = {40, 40, 40, 40, 40, LV_GRID_TEMPLATE_LAST};
-
-    lv_obj_set_grid_dsc_array(keyboard, col_dsc, row_dsc);
-
-    // Tell LVGL to align buttons into this grid
-    lv_obj_set_style_pad_all(keyboard, 2, 0); // padding between buttons
-    lv_obj_set_size(keyboard, 240, 200);      // set overall size
-    lv_obj_set_pos(keyboard, -120, 0);       // position below textarea
-
-    lv_obj_add_event_cb(keyboard, keyboard_event_cb, LV_EVENT_VALUE_CHANGED, NULL);
+void backspace_event(lv_event_t* e) {
+    int len = strlen(number_input);
+    if (len > 0) number_input[len-1] = '\0';
+    lv_obj_t* popup_label = (lv_obj_t*)lv_event_get_user_data(e);
+    lv_label_set_text(popup_label, number_input);
 }
 
+void enter_event(lv_event_t* e) {
+    if (active_button) {
+        lv_label_set_text(lv_obj_get_child(active_button, 0), number_input);
+    }
+    // Delete the popup container (parent of the Enter button)
+    lv_obj_t* popup = lv_obj_get_parent(lv_event_get_current_target(e));
+    lv_obj_del(popup);
+    active_button = NULL;
+}
 
+void open_number_popup(lv_event_t* e) {
+    active_button = lv_event_get_target(e);
+    const char* current = lv_label_get_text(lv_obj_get_child(active_button, 0));
+    strncpy(number_input, current, sizeof(number_input));
+    number_input[sizeof(number_input)-1] = '\0';
 
-static void ta_event_cb(lv_event_t * e) {
-    lv_event_code_t code = lv_event_get_code(e);
-    lv_obj_t * ta = lv_event_get_target(e); // the textarea
-    if(code == LV_EVENT_FOCUSED) {
-        // Ensure keyboard exists and is valid
-        if(!keyboard || !lv_obj_is_valid(keyboard)) {
-            // try to create it on-demand using the current screen as parent
-            create_keyboard_if_needed(lv_scr_act());
-            if(!keyboard || !lv_obj_is_valid(keyboard)) {
-                // Creation failed — safe fallback: do nothing
-                printf("Warning: keyboard not available\n");
-                return;
-            }
+    lv_obj_t* parent = lv_scr_act();
+    lv_obj_t* popup = lv_obj_create(parent);
+    lv_obj_set_size(popup, 270, 200);
+    lv_obj_clear_flag(popup, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_center(popup);
+    lv_obj_set_style_bg_color(popup, lv_color_hex(0x8000ff), 0);
+    lv_obj_set_style_border_width(popup, 0, 0);
+    lv_obj_set_style_border_color(popup, lv_color_hex(0x8000ff), 0);
+
+    // Label to show current input
+    lv_obj_t* display_label = lv_label_create(popup);
+    lv_label_set_text(display_label, number_input);
+    lv_obj_set_pos(display_label, 10, 0);
+
+    // Manually create buttons 0-9
+    int btn_size = 50;
+    int x0 = 5, y0 = 15;
+    for (int i = 1; i <= 9; i++) {
+        lv_obj_t* btn = lv_btn_create(popup);
+        lv_obj_set_size(btn, btn_size, btn_size);
+        int row = (i-1)/3;
+        int col = (i-1)%3;
+        lv_obj_set_pos(btn, x0 + col*(btn_size+5), y0 + row*(btn_size+5));
+
+        lv_obj_t* lbl = lv_label_create(btn);
+        char buf[2]; buf[0] = '0' + i; buf[1] = '\0';
+        lv_label_set_text(lbl, buf);
+        lv_obj_center(lbl);
+
+        lv_obj_add_event_cb(btn, number_key_event, LV_EVENT_CLICKED, display_label);
+    }
+
+    // Button 0
+    lv_obj_t* btn0 = lv_btn_create(popup);
+    lv_obj_set_size(btn0, btn_size, btn_size);
+    lv_obj_set_pos(btn0, x0 + 3*(btn_size+5), y0 + 0*(btn_size+5));
+    lv_obj_t* lbl0 = lv_label_create(btn0);
+    lv_label_set_text(lbl0, "0");
+    lv_obj_center(lbl0);
+    lv_obj_add_event_cb(btn0, number_key_event, LV_EVENT_CLICKED, display_label);
+
+    // Backspace button
+    lv_obj_t* btn_back = lv_btn_create(popup);
+    lv_obj_set_size(btn_back, 50, btn_size);
+    lv_obj_set_pos(btn_back, x0 + 3*(btn_size+5), y0 + 1*(btn_size+5));
+    lv_obj_t* lbl_back = lv_label_create(btn_back);
+    lv_label_set_text(lbl_back, "<-");
+    lv_obj_center(lbl_back);
+    lv_obj_add_event_cb(btn_back, backspace_event, LV_EVENT_CLICKED, display_label);
+
+    // Enter button
+    lv_obj_t* btn_enter = lv_btn_create(popup);
+    lv_obj_set_size(btn_enter, 50, btn_size);
+    lv_obj_set_pos(btn_enter, x0 + 3*(btn_size+5), y0 + 2*(btn_size+5));
+    lv_obj_t* lbl_enter = lv_label_create(btn_enter);
+    lv_label_set_text(lbl_enter, "Enter");
+    lv_obj_center(lbl_enter);
+    lv_obj_add_event_cb(btn_enter, enter_event, LV_EVENT_CLICKED, NULL);
+}
+
+lv_obj_t* create_number_button(lv_obj_t* parent, const char* text) {
+    lv_obj_t* btn = lv_btn_create(parent);
+    lv_obj_set_size(btn, 50, 30);
+    lv_obj_add_event_cb(btn, open_number_popup, LV_EVENT_CLICKED, NULL);
+
+    lv_obj_t* lbl = lv_label_create(btn);
+    lv_label_set_text(lbl, text);
+    lv_obj_center(lbl);
+
+    return btn;
+}
+
+// Bars for each command type
+lv_obj_t* create_move_bar(lv_obj_t* parent) {
+    lv_obj_t* bar = lv_obj_create(parent);
+    lv_obj_set_size(bar, 350, 60);
+    lv_obj_set_flex_flow(bar, LV_FLEX_FLOW_ROW);
+    lv_obj_set_style_flex_cross_place(bar, LV_FLEX_ALIGN_CENTER, 0); // Center items vertically
+    lv_obj_set_style_pad_all(bar, 4, 0);
+    lv_obj_set_style_bg_color(bar, lv_color_hex(0x444444), 0);
+
+    lv_label_set_text(lv_label_create(bar), "Move to:");
+
+    lv_label_set_text(lv_label_create(bar), "x");
+    create_number_button(bar, "0");
+
+    lv_label_set_text(lv_label_create(bar), "y");
+    create_number_button(bar, "0");
+
+    lv_label_set_text(lv_label_create(bar), "θ");
+    create_number_button(bar, "0");
+
+    return bar;
+}
+
+lv_obj_t* create_wait_bar(lv_obj_t* parent) {
+    lv_obj_t* bar = lv_obj_create(parent);
+    lv_obj_set_size(bar, 350, 60);
+    lv_obj_set_flex_flow(bar, LV_FLEX_FLOW_ROW);
+    lv_obj_set_style_flex_cross_place(bar, LV_FLEX_ALIGN_CENTER, 0); // Center items vertically
+    lv_obj_set_style_pad_all(bar, 4, 0);
+    lv_obj_set_style_bg_color(bar, lv_color_hex(0x444444), 0);
+
+    lv_label_set_text(lv_label_create(bar), "Wait");
+    create_number_button(bar, "0");
+    lv_label_set_text(lv_label_create(bar), "sec");
+
+    return bar;
+}
+
+lv_obj_t* create_spin_bar(lv_obj_t* parent) {
+    lv_obj_t* bar = lv_obj_create(parent);
+    lv_obj_set_size(bar, 350, 60);
+    lv_obj_set_flex_flow(bar, LV_FLEX_FLOW_ROW);
+    lv_obj_set_style_flex_cross_place(bar, LV_FLEX_ALIGN_CENTER, 0); // Center items vertically
+    lv_obj_set_style_pad_all(bar, 4, 0);
+    lv_obj_set_style_bg_color(bar, lv_color_hex(0x444444), 0);
+
+    lv_label_set_text(lv_label_create(bar), "Spin");
+    lv_obj_t* motor = lv_dropdown_create(bar);
+    lv_dropdown_set_options(motor, "LeftMotor\nRightMotor\nIntake");
+    lv_label_set_text(lv_label_create(bar), "at");
+    create_number_button(bar, "0");
+
+    return bar;
+}
+
+lv_obj_t* create_toggle_bar(lv_obj_t* parent) {
+    lv_obj_t* bar = lv_obj_create(parent);
+    lv_obj_set_size(bar, 350, 60);
+    lv_obj_set_flex_flow(bar, LV_FLEX_FLOW_ROW);
+    lv_obj_set_style_flex_cross_place(bar, LV_FLEX_ALIGN_CENTER, 0); // Center items vertically
+    lv_obj_set_style_pad_all(bar, 4, 0);
+    lv_obj_set_style_bg_color(bar, lv_color_hex(0x444444), 0);
+
+    lv_obj_t *text1 = lv_label_create(bar);
+    lv_label_set_text(text1, "Toggle");
+    lv_obj_t* piston = lv_dropdown_create(bar);
+    lv_dropdown_set_options(piston, "Descore\nWeedwacker");
+    lv_obj_t *text2 = lv_label_create(bar);
+    lv_label_set_text(text2, "to");
+    lv_obj_t* sw = lv_switch_create(bar);
+
+    return bar;
+}
+
+// List to store bars
+void update_list_position() {
+    lv_obj_set_y(list_inner, -visible_offset * 70); // Move the inner container to simulate scrolling
+}
+
+void highlight_selected() {
+    uint32_t child_count = lv_obj_get_child_cnt(list_inner);
+    for (uint32_t i = 0; i < child_count; i++) {
+        lv_obj_t* child = lv_obj_get_child(list_inner, i);
+        if ((int)i == selected_index) {
+            lv_obj_set_style_bg_color(child, lv_color_hex(0x2288ff), 0); // selected blue
+        } else {
+            lv_obj_set_style_bg_color(child, lv_color_hex(0x444444), 0); // unselected gray
         }
-        // Attach the textarea to keyboard and show it
-        lv_keyboard_set_textarea(keyboard, ta);
-        lv_obj_clear_flag(keyboard, LV_OBJ_FLAG_HIDDEN);
-        // If numeric-only fields, set keyboard mode here as desired:
-        // lv_keyboard_set_mode(keyboard, LV_KEYBOARD_MODE_NUMBER);
-    }
-    else if(code == LV_EVENT_DEFOCUSED) {
-        // Detach and hide keyboard, but only if keyboard is valid
-        if(keyboard && lv_obj_is_valid(keyboard)) {
-            lv_keyboard_set_textarea(keyboard, NULL);
-            lv_obj_add_flag(keyboard, LV_OBJ_FLAG_HIDDEN);
-        }
     }
 }
 
-lv_obj_t* create_move_command_row(lv_obj_t* parent, double x, double y, double z) {
-    lv_obj_t *row = lv_obj_create(parent);
-    lv_obj_set_size(row, lv_pct(100), LV_SIZE_CONTENT);
-    lv_obj_set_flex_flow(row, LV_FLEX_FLOW_ROW);
-    lv_obj_set_style_pad_row(row, 5, 0);
-    lv_obj_set_style_pad_column(row, 5, 0);
+void move_selection(int direction) {
+    int child_count = lv_obj_get_child_cnt(list_inner);
+    selected_index += direction;
+    if (selected_index < 0) selected_index = 0;
+    if (selected_index >= child_count) selected_index = child_count - 1;
 
-    lv_obj_t *lbl = lv_label_create(row);
-    lv_label_set_text(lbl, "Move robot to:");
+    // If near edges, adjust visible offset
+    if (selected_index < visible_offset) {
+        visible_offset = selected_index;
+    } else if (selected_index >= visible_offset + VISIBLE_COUNT) {
+        visible_offset = selected_index - VISIBLE_COUNT + 1;
+    }
 
-    // X, Y, Z textareas
-    auto make_field = [&](const char *placeholder, double val) -> lv_obj_t* {
-        lv_obj_t *ta = lv_textarea_create(row);
-        lv_obj_set_width(ta, 50);
-        lv_textarea_set_one_line(ta, true);
-        lv_textarea_set_placeholder_text(ta, placeholder);
-
-        char buf[16];
-        snprintf(buf, sizeof(buf), "%.1f", val);
-        lv_textarea_set_text(ta, buf);
-        lv_obj_add_event_cb(ta, ta_event_cb, LV_EVENT_FOCUSED, NULL);
-        lv_obj_add_event_cb(ta, ta_event_cb, LV_EVENT_DEFOCUSED, NULL);
-        return ta;
-    };
-
-    make_field("x", x);
-    make_field("y", y);
-    make_field("z", z);
-    return row;
+    update_list_position();
+    highlight_selected();
 }
 
-// Callback for the "Add Command" button in the editor page
-static void add_command_event(lv_event_t *e) {
-    commandList.push_back("m0,0,0");
-    // Create a new row in the container
-    create_move_command_row(list_container, 0, 0, 0);
-    // Optionally scroll to bottom so the new row is visible
-    lv_obj_scroll_to_y(list_container, lv_obj_get_height(list_container), LV_ANIM_ON);
-}
+void up_event(lv_event_t* e) { move_selection(-1); }
+void down_event(lv_event_t* e) { move_selection(1); }
 
-void add_keyboard(lv_obj_t *parent) {
-    keyboard = lv_keyboard_create(parent);
-    lv_obj_set_size(keyboard, 480, 120);
-    lv_obj_align(keyboard, LV_ALIGN_BOTTOM_MID, 0, 0);
-    lv_obj_add_flag(keyboard, LV_OBJ_FLAG_HIDDEN); // Start hidden
-}
-
+// Page builder
 void build_editor_page() {
     page_editor = lv_obj_create(lv_scr_act());
     lv_obj_set_size(page_editor, 480, 240);
@@ -624,18 +701,37 @@ void build_editor_page() {
     lv_obj_set_style_pad_all(page_editor, 0, 0);
     lv_obj_set_style_bg_opa(page_editor, LV_OPA_TRANSP, 0);
 
-    // Container for the list of commands
-    list_container = lv_obj_create(page_editor);
-    lv_obj_set_size(list_container, 395, 210);
-    lv_obj_set_pos(list_container, 5, 5);
-    lv_obj_set_flex_flow(list_container, LV_FLEX_FLOW_COLUMN);
-    lv_obj_clear_flag(list_container, LV_OBJ_FLAG_SCROLLABLE); // Turn off scroll
+    // ===== LIST MASK (acts as viewport) =====
+    lv_obj_t* list_view = lv_obj_create(page_editor);
+    lv_obj_set_size(list_view, 395, 240);
+    lv_obj_set_pos(list_view, 0, 0);
+    lv_obj_clear_flag(list_view, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_set_style_pad_all(list_view, 0, 0);
+    lv_obj_set_style_clip_corner(list_view, true, 0); // mask children outside bounds
+    lv_obj_set_scrollbar_mode(list_view, LV_SCROLLBAR_MODE_OFF);
+
+    // ===== INNER LIST =====
+    list_inner = lv_obj_create(list_view);
+    lv_obj_set_size(list_inner, 395, 999999);
+    lv_obj_set_pos(list_inner, 0, 0);
+    lv_obj_set_flex_flow(list_inner, LV_FLEX_FLOW_COLUMN);
+    lv_obj_clear_flag(list_inner, LV_OBJ_FLAG_SCROLLABLE);
+
+    // Populate example bars
+    create_move_bar(list_inner);
+    create_wait_bar(list_inner);
+    create_spin_bar(list_inner);
+    create_toggle_bar(list_inner);
+    create_wait_bar(list_inner);
+    create_move_bar(list_inner);
+
+    highlight_selected();
 
     // Add button
     lv_obj_t *btn_add = lv_btn_create(page_editor);
     lv_obj_set_size(btn_add, 70, 40);
     lv_obj_set_pos(btn_add, 405, 5);
-    lv_obj_add_event_cb(btn_add, add_command_event, LV_EVENT_CLICKED, NULL);
+    //lv_obj_add_event_cb(btn_add, add_command_event, LV_EVENT_CLICKED, NULL);
     lv_obj_t *lbl_add = lv_label_create(btn_add);
     lv_label_set_text(lbl_add, "Add");
     lv_obj_center(lbl_add);
@@ -644,10 +740,28 @@ void build_editor_page() {
     lv_obj_t *btn_remove = lv_btn_create(page_editor);
     lv_obj_set_size(btn_remove, 70, 40);
     lv_obj_set_pos(btn_remove, 405, 50);
-    lv_obj_add_event_cb(btn_remove, add_command_event, LV_EVENT_CLICKED, NULL);
+    //lv_obj_add_event_cb(btn_remove, add_command_event, LV_EVENT_CLICKED, NULL);
     lv_obj_t *lbl_remove = lv_label_create(btn_remove);
     lv_label_set_text(lbl_remove, "Del");
     lv_obj_center(lbl_remove);
+
+    // Up button
+    lv_obj_t *btn_up = lv_btn_create(page_editor);
+    lv_obj_set_size(btn_up, 70, 40);
+    lv_obj_set_pos(btn_up, 405, 95);
+    lv_obj_add_event_cb(btn_up, up_event, LV_EVENT_CLICKED, NULL);
+    lv_obj_t *lbl_up = lv_label_create(btn_up);
+    lv_label_set_text(lbl_up, "UP");
+    lv_obj_center(lbl_up);
+
+    // Down button
+    lv_obj_t *btn_down = lv_btn_create(page_editor);
+    lv_obj_set_size(btn_down, 70, 40);
+    lv_obj_set_pos(btn_down, 405, 140);
+    lv_obj_add_event_cb(btn_down, down_event, LV_EVENT_CLICKED, NULL);
+    lv_obj_t *lbl_down = lv_label_create(btn_down);
+    lv_label_set_text(lbl_down, "Down");
+    lv_obj_center(lbl_down);
     
     // Back button
     lv_obj_t *btn_back = lv_btn_create(page_editor);
@@ -655,15 +769,6 @@ void build_editor_page() {
     lv_obj_set_pos(btn_back, 405, 200);
     lv_obj_add_event_cb(btn_back, goto_home, LV_EVENT_CLICKED, NULL);
     lv_label_set_text(lv_label_create(btn_back), "Home");
-
-
-    create_keyboard_if_needed(page_editor); // ensures keyboard exists and is parented safely
-    // Label above keyboard
-    input_label = lv_label_create(page_editor);
-    lv_obj_set_width(input_label, 480);
-    lv_label_set_text(input_label, "");
-    lv_obj_set_style_text_align(input_label, LV_TEXT_ALIGN_LEFT, 0);
-    lv_obj_set_pos(input_label, 5, 5);
 }
 
 void Setup_lvgl_selector() {
