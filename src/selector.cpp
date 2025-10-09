@@ -471,11 +471,32 @@ static const int VISIBLE_COUNT = 3; // number of visible containers
 static lv_obj_t* list_inner;
 static char number_input[16];        // current typed number (as string)
 static lv_obj_t* active_button = NULL; // button that was clicked to open popup
+lv_obj_t* display_label;
+
+//Colors
+lv_color_t purple = lv_palette_main(LV_PALETTE_PURPLE);
+lv_color_t red    = lv_palette_main(LV_PALETTE_RED);
+lv_color_t green  = lv_palette_main(LV_PALETTE_GREEN);
+lv_color_t blue   = lv_palette_main(LV_PALETTE_BLUE);
+lv_color_t yellow = lv_palette_main(LV_PALETTE_YELLOW);
 
 // Open a popup to enter a number
 void number_key_event(lv_event_t* e) {
     lv_obj_t* btn = lv_event_get_target(e);
     const char* digit = lv_label_get_text(lv_obj_get_child(btn, 0));
+    int len = strlen(number_input);
+    if (len < 15) {
+        number_input[len] = digit[0];
+        number_input[len+1] = '\0';
+    }
+    // update popup display
+    lv_obj_t* popup_label = (lv_obj_t*)lv_event_get_user_data(e);
+    lv_label_set_text(popup_label, number_input);
+}
+
+void dot_key_event(lv_event_t* e) {
+    lv_obj_t* btn = lv_event_get_target(e);
+    const char* digit = ".";
     int len = strlen(number_input);
     if (len < 15) {
         number_input[len] = digit[0];
@@ -495,7 +516,14 @@ void backspace_event(lv_event_t* e) {
 
 void enter_event(lv_event_t* e) {
     if (active_button) {
-        lv_label_set_text(lv_obj_get_child(active_button, 0), number_input);
+        if (number_input[0] == '\0') {
+            // number_input is blank → show "0"
+            strcpy(number_input, "0");
+            lv_label_set_text(lv_obj_get_child(active_button, 0), "0");
+        } else {
+            // number_input has content → show that instead
+            lv_label_set_text(lv_obj_get_child(active_button, 0), number_input);
+        }
     }
     // Delete the popup container (parent of the Enter button)
     lv_obj_t* popup = lv_obj_get_parent(lv_event_get_current_target(e));
@@ -503,7 +531,7 @@ void enter_event(lv_event_t* e) {
     active_button = NULL;
 }
 
-void open_number_popup(lv_event_t* e) {
+void open_number_key_popup(lv_event_t* e) {
     active_button = lv_event_get_target(e);
     const char* current = lv_label_get_text(lv_obj_get_child(active_button, 0));
     strncpy(number_input, current, sizeof(number_input));
@@ -511,21 +539,28 @@ void open_number_popup(lv_event_t* e) {
 
     lv_obj_t* parent = lv_scr_act();
     lv_obj_t* popup = lv_obj_create(parent);
-    lv_obj_set_size(popup, 270, 200);
+    lv_obj_set_size(popup, 300, 210);
     lv_obj_clear_flag(popup, LV_OBJ_FLAG_SCROLLABLE);
-    lv_obj_center(popup);
-    lv_obj_set_style_bg_color(popup, lv_color_hex(0x8000ff), 0);
+    lv_obj_align(popup, LV_ALIGN_CENTER, -20, 0);
+    lv_obj_set_style_bg_color(popup, purple, 0);
     lv_obj_set_style_border_width(popup, 0, 0);
-    lv_obj_set_style_border_color(popup, lv_color_hex(0x8000ff), 0);
+    lv_obj_set_style_border_color(popup, purple, 0);
 
     // Label to show current input
     lv_obj_t* display_label = lv_label_create(popup);
-    lv_label_set_text(display_label, number_input);
+    if (strcmp(number_input, "0") == 0)
+    {
+        number_input[0] = '\0';
+        lv_label_set_text(display_label, "");
+    } else {
+        lv_label_set_text(display_label, number_input);
+    }
+    
     lv_obj_set_pos(display_label, 10, 0);
 
     // Manually create buttons 0-9
     int btn_size = 50;
-    int x0 = 5, y0 = 15;
+    int x0 = 0, y0 = 20;
     for (int i = 1; i <= 9; i++) {
         lv_obj_t* btn = lv_btn_create(popup);
         lv_obj_set_size(btn, btn_size, btn_size);
@@ -550,10 +585,19 @@ void open_number_popup(lv_event_t* e) {
     lv_obj_center(lbl0);
     lv_obj_add_event_cb(btn0, number_key_event, LV_EVENT_CLICKED, display_label);
 
+    // Button .
+    lv_obj_t* btndot = lv_btn_create(popup);
+    lv_obj_set_size(btndot, btn_size, btn_size);
+    lv_obj_set_pos(btndot, x0 + 3*(btn_size+5), y0 + 1*(btn_size+5));
+    lv_obj_t* lbldot = lv_label_create(btndot);
+    lv_label_set_text(lbldot, ".");
+    lv_obj_center(lbldot);
+    lv_obj_add_event_cb(btndot, dot_key_event, LV_EVENT_CLICKED, display_label);
+
     // Backspace button
     lv_obj_t* btn_back = lv_btn_create(popup);
     lv_obj_set_size(btn_back, 50, btn_size);
-    lv_obj_set_pos(btn_back, x0 + 3*(btn_size+5), y0 + 1*(btn_size+5));
+    lv_obj_set_pos(btn_back, x0 + 3*(btn_size+5), y0 + 2*(btn_size+5));
     lv_obj_t* lbl_back = lv_label_create(btn_back);
     lv_label_set_text(lbl_back, "<-");
     lv_obj_center(lbl_back);
@@ -561,19 +605,135 @@ void open_number_popup(lv_event_t* e) {
 
     // Enter button
     lv_obj_t* btn_enter = lv_btn_create(popup);
-    lv_obj_set_size(btn_enter, 50, btn_size);
-    lv_obj_set_pos(btn_enter, x0 + 3*(btn_size+5), y0 + 2*(btn_size+5));
+    lv_obj_set_size(btn_enter, 50, (btn_size+5)*3 - 5);
+    lv_obj_set_pos(btn_enter, x0 + 4*(btn_size+5), y0 + 0*(btn_size+5));
     lv_obj_t* lbl_enter = lv_label_create(btn_enter);
     lv_label_set_text(lbl_enter, "Enter");
     lv_obj_center(lbl_enter);
     lv_obj_add_event_cb(btn_enter, enter_event, LV_EVENT_CLICKED, NULL);
 }
 
-lv_obj_t* create_number_button(lv_obj_t* parent, const char* text) {
+void open_number_speed_popup(lv_event_t* e) {
+    active_button = lv_event_get_target(e);
+    const char* current = lv_label_get_text(lv_obj_get_child(active_button, 0));
+    strncpy(number_input, current, sizeof(number_input));
+    number_input[sizeof(number_input)-1] = '\0';
+
+    lv_obj_t* parent = lv_scr_act();
+    lv_obj_t* popup = lv_obj_create(parent);
+    lv_obj_set_size(popup, 200, 180);
+    lv_obj_clear_flag(popup, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_align(popup, LV_ALIGN_CENTER, -20, 0);
+    lv_obj_set_style_bg_color(popup, purple, 0);
+    lv_obj_set_style_border_width(popup, 0, 0);
+    lv_obj_set_style_border_color(popup, purple, 0);
+
+    // Label to show current input
+    display_label = lv_label_create(popup);
+    lv_label_set_text(display_label, number_input);
+    lv_obj_align(display_label, LV_ALIGN_CENTER, 0, -20);
+
+    lv_obj_t* arc = lv_arc_create(popup);
+    lv_obj_set_size(arc, 120, 120);
+    lv_obj_align(arc, LV_ALIGN_CENTER, 0, -20);
+    lv_arc_set_range(arc, 0, 270);
+    lv_arc_set_value(arc, 0);
+    lv_obj_clear_flag(arc, LV_OBJ_FLAG_CLICK_FOCUSABLE);
+    lv_obj_set_style_bg_opa(arc, LV_OPA_TRANSP, 0);
+
+    // Update label and number_input when arc changes
+    lv_obj_add_event_cb(arc, [](lv_event_t* e) {
+        lv_obj_t* arc = lv_event_get_target(e);
+        int value = lv_arc_get_value(arc);
+        snprintf(number_input, sizeof(number_input), "%d", value);
+        lv_label_set_text(display_label, number_input);
+        lv_label_set_text(display_label, number_input);
+    }, LV_EVENT_VALUE_CHANGED, display_label);
+
+    // Optionally, set initial value from number_input if it's a valid integer
+    int initial_value = atoi(number_input);
+    lv_arc_set_value(arc, initial_value);
+    lv_label_set_text(display_label, number_input);
+
+    // Enter button
+    lv_obj_t* btn_enter = lv_btn_create(popup);
+    lv_obj_set_size(btn_enter, 150, 40);
+    lv_obj_align(btn_enter, LV_ALIGN_CENTER, 0, 60);
+    lv_obj_t* lbl_enter = lv_label_create(btn_enter);
+    lv_label_set_text(lbl_enter, "Enter");
+    lv_obj_center(lbl_enter);
+    lv_obj_add_event_cb(btn_enter, enter_event, LV_EVENT_CLICKED, NULL);
+}
+
+void open_number_dir_popup(lv_event_t* e) {
+    active_button = lv_event_get_target(e);
+    const char* current = lv_label_get_text(lv_obj_get_child(active_button, 0));
+    strncpy(number_input, current, sizeof(number_input));
+    number_input[sizeof(number_input)-1] = '\0';
+
+    lv_obj_t* parent = lv_scr_act();
+    lv_obj_t* popup = lv_obj_create(parent);
+    lv_obj_set_size(popup, 200, 190);
+    lv_obj_clear_flag(popup, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_align(popup, LV_ALIGN_CENTER, -20, 0);
+    lv_obj_set_style_bg_color(popup, purple, 0);
+    lv_obj_set_style_border_width(popup, 0, 0);
+    lv_obj_set_style_border_color(popup, purple, 0);
+
+    // Label to show current input
+    display_label = lv_label_create(popup);
+    lv_label_set_text(display_label, number_input);
+    lv_obj_align(display_label, LV_ALIGN_CENTER, 0, -25);
+
+    lv_obj_t* arc = lv_arc_create(popup);
+    lv_obj_set_size(arc, 120, 120);
+    lv_obj_align(arc, LV_ALIGN_CENTER, 0, -25);
+    lv_obj_clear_flag(arc, LV_OBJ_FLAG_CLICK_FOCUSABLE);
+    
+    // Make the arc span 360 degrees and hide the indicator
+    lv_arc_set_range(arc, -180, 180);
+    lv_arc_set_rotation(arc, 90); // Start from top (12 o'clock)
+    lv_arc_set_bg_angles(arc, 0, 360);
+    lv_obj_set_style_arc_opa(arc, LV_OPA_TRANSP, LV_PART_INDICATOR);
+
+    // Update label and number_input when arc changes
+    lv_obj_add_event_cb(arc, [](lv_event_t* e) {
+        lv_obj_t* arc = lv_event_get_target(e);
+        int value = lv_arc_get_value(arc);
+        snprintf(number_input, sizeof(number_input), "%d", value);
+        lv_label_set_text(display_label, number_input);
+        lv_label_set_text(display_label, number_input);
+    }, LV_EVENT_VALUE_CHANGED, display_label);
+
+    // Optionally, set initial value from number_input if it's a valid integer
+    int initial_value = atoi(number_input);
+    lv_arc_set_value(arc, initial_value);
+    lv_label_set_text(display_label, number_input);
+
+    // Enter button
+    lv_obj_t* btn_enter = lv_btn_create(popup);
+    lv_obj_set_size(btn_enter, 150, 40);
+    lv_obj_align(btn_enter, LV_ALIGN_CENTER, 0, 65);
+    lv_obj_t* lbl_enter = lv_label_create(btn_enter);
+    lv_label_set_text(lbl_enter, "Enter");
+    lv_obj_center(lbl_enter);
+    lv_obj_add_event_cb(btn_enter, enter_event, LV_EVENT_CLICKED, NULL);
+}
+
+lv_obj_t* create_number_button(lv_obj_t* parent, const char* text, int type) {
     lv_obj_t* btn = lv_btn_create(parent);
     lv_obj_set_size(btn, 50, 30);
-    lv_obj_add_event_cb(btn, open_number_popup, LV_EVENT_CLICKED, NULL);
-
+    if (type == 0)
+    {
+        lv_obj_add_event_cb(btn, open_number_key_popup, LV_EVENT_CLICKED, NULL);
+    } else if (type == 1)
+    {
+        lv_obj_add_event_cb(btn, open_number_speed_popup, LV_EVENT_CLICKED, NULL);
+    } else if (type == 2)
+    {
+        lv_obj_add_event_cb(btn, open_number_dir_popup, LV_EVENT_CLICKED, NULL);
+    }
+    
     lv_obj_t* lbl = lv_label_create(btn);
     lv_label_set_text(lbl, text);
     lv_obj_center(lbl);
@@ -582,92 +742,64 @@ lv_obj_t* create_number_button(lv_obj_t* parent, const char* text) {
 }
 
 // Bars for each command type
-lv_obj_t* create_move_bar(lv_obj_t* parent) {
+lv_obj_t* create_command_bar(lv_obj_t* parent, const char* type) {
     lv_obj_t* bar = lv_obj_create(parent);
-    lv_obj_set_size(bar, 350, 60);
+    lv_obj_set_size(bar, 350, 55);
     lv_obj_set_flex_flow(bar, LV_FLEX_FLOW_ROW);
     lv_obj_set_style_flex_cross_place(bar, LV_FLEX_ALIGN_CENTER, 0); // Center items vertically
     lv_obj_set_style_pad_all(bar, 4, 0);
-    lv_obj_set_style_bg_color(bar, lv_color_hex(0x444444), 0);
-
-    lv_label_set_text(lv_label_create(bar), "Move to:");
-
-    lv_label_set_text(lv_label_create(bar), "x");
-    create_number_button(bar, "0");
-
-    lv_label_set_text(lv_label_create(bar), "y");
-    create_number_button(bar, "0");
-
-    lv_label_set_text(lv_label_create(bar), "θ");
-    create_number_button(bar, "0");
-
-    return bar;
-}
-
-lv_obj_t* create_wait_bar(lv_obj_t* parent) {
-    lv_obj_t* bar = lv_obj_create(parent);
-    lv_obj_set_size(bar, 350, 60);
-    lv_obj_set_flex_flow(bar, LV_FLEX_FLOW_ROW);
-    lv_obj_set_style_flex_cross_place(bar, LV_FLEX_ALIGN_CENTER, 0); // Center items vertically
-    lv_obj_set_style_pad_all(bar, 4, 0);
-    lv_obj_set_style_bg_color(bar, lv_color_hex(0x444444), 0);
-
-    lv_label_set_text(lv_label_create(bar), "Wait");
-    create_number_button(bar, "0");
-    lv_label_set_text(lv_label_create(bar), "sec");
-
-    return bar;
-}
-
-lv_obj_t* create_spin_bar(lv_obj_t* parent) {
-    lv_obj_t* bar = lv_obj_create(parent);
-    lv_obj_set_size(bar, 350, 60);
-    lv_obj_set_flex_flow(bar, LV_FLEX_FLOW_ROW);
-    lv_obj_set_style_flex_cross_place(bar, LV_FLEX_ALIGN_CENTER, 0); // Center items vertically
-    lv_obj_set_style_pad_all(bar, 4, 0);
-    lv_obj_set_style_bg_color(bar, lv_color_hex(0x444444), 0);
-
-    lv_label_set_text(lv_label_create(bar), "Spin");
-    lv_obj_t* motor = lv_dropdown_create(bar);
-    lv_dropdown_set_options(motor, "LeftMotor\nRightMotor\nIntake");
-    lv_label_set_text(lv_label_create(bar), "at");
-    create_number_button(bar, "0");
-
-    return bar;
-}
-
-lv_obj_t* create_toggle_bar(lv_obj_t* parent) {
-    lv_obj_t* bar = lv_obj_create(parent);
-    lv_obj_set_size(bar, 350, 60);
-    lv_obj_set_flex_flow(bar, LV_FLEX_FLOW_ROW);
-    lv_obj_set_style_flex_cross_place(bar, LV_FLEX_ALIGN_CENTER, 0); // Center items vertically
-    lv_obj_set_style_pad_all(bar, 4, 0);
-    lv_obj_set_style_bg_color(bar, lv_color_hex(0x444444), 0);
-
-    lv_obj_t *text1 = lv_label_create(bar);
-    lv_label_set_text(text1, "Toggle");
-    lv_obj_t* piston = lv_dropdown_create(bar);
-    lv_dropdown_set_options(piston, "Descore\nWeedwacker");
-    lv_obj_t *text2 = lv_label_create(bar);
-    lv_label_set_text(text2, "to");
-    lv_obj_t* sw = lv_switch_create(bar);
-
+    lv_obj_clear_flag(bar, LV_OBJ_FLAG_SCROLLABLE);
+    if (type == "move") {
+        lv_obj_set_style_bg_color(bar, yellow, 0);
+        lv_label_set_text(lv_label_create(bar), "Move to");
+        lv_label_set_text(lv_label_create(bar), "x:");
+        create_number_button(bar, "0",0);
+        lv_label_set_text(lv_label_create(bar), "y:");
+        create_number_button(bar, "0",0);
+        lv_label_set_text(lv_label_create(bar), "dir:");
+        create_number_button(bar, "0",2);
+    } else if (type == "wait") {
+        lv_obj_set_style_bg_color(bar, green, 0);
+        lv_label_set_text(lv_label_create(bar), "Wait");
+        create_number_button(bar, "0",0);
+        lv_label_set_text(lv_label_create(bar), "sec");
+    } else if (type == "motor") {
+        lv_obj_set_style_bg_color(bar, blue, 0);
+        lv_label_set_text(lv_label_create(bar), "Spin");
+        lv_obj_t* motor = lv_dropdown_create(bar);
+        lv_dropdown_set_options(motor, "Intake Top\nIntake Middle\nIntake Bottom");
+        lv_label_set_text(lv_label_create(bar), "at");
+        create_number_button(bar, "0",1);
+    } else if (type == "piston") {
+        lv_obj_set_style_bg_color(bar, red, 0);
+        lv_label_set_text(lv_label_create(bar), "Toggle");
+        lv_obj_t* piston = lv_dropdown_create(bar);
+        lv_dropdown_set_options(piston, "Descore\nWeedwacker");
+        lv_label_set_text(lv_label_create(bar), "to");
+        lv_obj_t* sw = lv_switch_create(bar);
+    }
+    
     return bar;
 }
 
 // List to store bars
 void update_list_position() {
-    lv_obj_set_y(list_inner, -visible_offset * 70); // Move the inner container to simulate scrolling
+    lv_obj_set_y(list_inner, -visible_offset * 55); // Move the inner container to simulate scrolling
 }
 
 void highlight_selected() {
     uint32_t child_count = lv_obj_get_child_cnt(list_inner);
     for (uint32_t i = 0; i < child_count; i++) {
         lv_obj_t* child = lv_obj_get_child(list_inner, i);
+
         if ((int)i == selected_index) {
-            lv_obj_set_style_bg_color(child, lv_color_hex(0x2288ff), 0); // selected blue
+            // Selected: white border, thick
+            lv_obj_set_style_border_width(child, 4, 0);      // thick border
+            lv_obj_set_style_border_color(child, lv_color_white(), 0);
+            lv_obj_set_style_border_opa(child, LV_OPA_COVER, 0);
         } else {
-            lv_obj_set_style_bg_color(child, lv_color_hex(0x444444), 0); // unselected gray
+            // Unselected: no border
+            lv_obj_set_style_border_width(child, 0, 0);
         }
     }
 }
@@ -718,12 +850,12 @@ void build_editor_page() {
     lv_obj_clear_flag(list_inner, LV_OBJ_FLAG_SCROLLABLE);
 
     // Populate example bars
-    create_move_bar(list_inner);
-    create_wait_bar(list_inner);
-    create_spin_bar(list_inner);
-    create_toggle_bar(list_inner);
-    create_wait_bar(list_inner);
-    create_move_bar(list_inner);
+    create_command_bar(list_inner, "move");
+    create_command_bar(list_inner, "wait");
+    create_command_bar(list_inner, "motor");
+    create_command_bar(list_inner, "piston");
+    create_command_bar(list_inner, "wait");
+    create_command_bar(list_inner, "move");
 
     highlight_selected();
 
