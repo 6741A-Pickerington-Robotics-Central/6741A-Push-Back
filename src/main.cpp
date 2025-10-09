@@ -14,7 +14,6 @@ pros::Rotation horizontalEnc(4); // Horizontal tracking wheel encoder.
 pros::Rotation verticalEnc(5); // Vertical tracking wheel encoder.
 lemlib::TrackingWheel horizontal(&horizontalEnc, lemlib::Omniwheel::NEW_275, 1); // Horizontal tracking wheel.
 lemlib::TrackingWheel vertical(&verticalEnc, lemlib::Omniwheel::NEW_275, 0); // Vertical tracking wheel.
-pros::Gps gps(21); // GPS sensor
 // Drivetrain settings
 lemlib::Drivetrain drivetrain(&leftMotors, // left motor group
                               &rightMotors, // right motor group
@@ -24,7 +23,7 @@ lemlib::Drivetrain drivetrain(&leftMotors, // left motor group
                               2 // horizontal drift
 );
 // Lateral motion controller
-lemlib::ControllerSettings linearController(6, // proportional gain (kP)
+lemlib::ControllerSettings linearController(20, // proportional gain (kP)
                                             0, // integral gain (kI)
                                             0.1, // derivative gain (kD)
                                             0, // anti windup
@@ -82,20 +81,6 @@ bool weedwackerState = false; // State of the weedwacker
 int weedwackercooldown = 0; // Cooldown timer for weedwacker toggle
 
 //////////////////////////////////
-//          Gps Stuff           //
-//////////////////////////////////
-
-lemlib::Pose gpsToLemlib(double gpsXmm, double gpsYmm, double gpsHeading) {
-    // Convert mm to inches
-    double xInches = gpsXmm / 25.4;
-    double yInches = gpsYmm / 25.4;
-    // Convert heading: GPS = clockwise, Lemlib = counterclockwise
-    double heading = 360 - gpsHeading;
-    if (heading >= 360) heading -= 360;
-    return lemlib::Pose(xInches, yInches, heading);
-}
-
-//////////////////////////////////
 //           Main Code          //
 //////////////////////////////////
 
@@ -112,7 +97,7 @@ void skills_auton() {
 
 void initialize() {
     chassis.calibrate(); // Calibrate sensors
-    bool pidtuning = false; // Set to true to enable the PID tuning screen
+    bool pidtuning = true; // Set to true to enable the PID tuning screen
     bool runonstart = false; // Set to true to run the selected auton on start
     if (pidtuning) pros::Task screenTask(screenTaskFunction); // Start the screen task for debugging
     else Setup_lvgl_selector(); // Setup the LVGL based auton selector
@@ -121,8 +106,10 @@ void initialize() {
 
 void autonomous() {
   //runauton();
-  //chassis.setPose(0, 0, 0); // Set position to x:0, y:0, heading:0
-  chassis.setPose(gpsToLemlib(gps.get_position_x(), gps.get_position_y(), gps.get_heading())); // Set position to GPS reading
+  chassis.setPose(0, 0, 0); // Set position to x:0, y:0, heading:0
+  chassis.moveToPose(50, 50, 90, 10000);
+  pros::delay(300);
+  chassis.moveToPose(0, 0, 0, 10000, {.forwards = false});
 }
 
 void opcontrol() {
