@@ -1,7 +1,5 @@
-#include "pros/colors.hpp"
 #include "pros/motors.h"
 #include "pros/rtos.hpp"
-#include "pros/screen.hpp"
 #include "selector.h"
 #include <cstdio>
 #include <fstream>
@@ -11,6 +9,7 @@
 #include <vector>
 #include <string>
 #include "liblvgl/lvgl.h"
+#include "commandbar.hpp"
 
 std::string selected_auton = "";
 const int TEMP_THRESHOLD = 50; // Temperature threshold for highlighting
@@ -772,6 +771,8 @@ lv_obj_t* create_number_button(lv_obj_t* parent, const char* text, int type) {
     return btn;
 }
 
+/*
+
 // Bars for each command type
 lv_obj_t* create_command_bar(lv_obj_t* parent, const char* type) {
     lv_obj_t* bar = lv_obj_create(parent);
@@ -809,6 +810,8 @@ lv_obj_t* create_command_bar(lv_obj_t* parent, const char* type) {
     }
     return bar;
 }
+
+*/
 
 // List to store bars
 void update_list_position() {
@@ -926,6 +929,52 @@ void build_editor_page() {
     lv_label_set_text(lbl_options, "OPT");
     lv_obj_center(lbl_down);
 }
+
+void load_auton_event() {
+    std::ifstream file("/usd/auton.txt");
+    if (!file.is_open()) return;
+
+    lv_obj_clean(list_inner);
+    std::string line;
+    while (std::getline(file, line)) {
+        if (line.empty()) continue;
+
+        std::string type;
+        switch (line[0]) {
+            case 'm': type = "move"; break;
+            case 'w': type = "wait"; break;
+            case 's': type = "motor"; break;
+            case 'p': type = "piston"; break;
+            default: continue;
+        }
+
+        CommandBar cmd = CommandBar::create(list_inner, type);
+        cmd.deserialize(line);
+    }
+    file.close();
+}
+
+void save_auton_event(lv_event_t* e) {
+    std::ofstream file("/usd/auton.txt");
+    if (!file.is_open()) return;
+
+    uint32_t count = lv_obj_get_child_cnt(list_inner);
+    for (uint32_t i = 0; i < count; i++) {
+        lv_obj_t* bar = lv_obj_get_child(list_inner, i);
+        lv_color_t bg = lv_obj_get_style_bg_color(bar, 0);
+        std::string type;
+        if (lv_color_to32(bg) == lv_color_to32(lv_palette_main(LV_PALETTE_YELLOW))) type = "move";
+        else if (lv_color_to32(bg) == lv_color_to32(lv_palette_main(LV_PALETTE_GREEN))) type = "wait";
+        else if (lv_color_to32(bg) == lv_color_to32(lv_palette_main(LV_PALETTE_BLUE))) type = "motor";
+        else if (lv_color_to32(bg) == lv_color_to32(lv_palette_main(LV_PALETTE_RED))) type = "piston";
+
+        CommandBar cmd{bar, type};
+        file << cmd.serialize() << "\n";
+    }
+    file.close();
+}
+
+/*
 
 void save_auton_event(lv_event_t* e) {
     // Open file on SD card (adjust path if you want to use `/usd/auton.txt`)
@@ -1111,6 +1160,8 @@ void load_auton_event() {
        lv_obj_get_height(list_inner));
 
 }
+
+*/
 
 void Setup_lvgl_selector() {
     build_home_page();
