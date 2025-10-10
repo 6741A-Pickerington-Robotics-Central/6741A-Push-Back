@@ -17,6 +17,7 @@ const int TEMP_THRESHOLD = 50; // Temperature threshold for highlighting
 lv_obj_t *btn_diag;
 bool any_motor_over_temp = false;
 
+void load_auton_event();
 
 /////////////////////////////////////////////
 //             Run The Auton               //
@@ -204,7 +205,7 @@ void show_page(lv_obj_t *page) {
 
 // --- Event callbacks for switch pages ---
 static void goto_home(lv_event_t *e) { show_page(page_home); }
-static void goto_editor(lv_event_t *e) { show_page(page_editor); }
+static void goto_editor(lv_event_t *e) { show_page(page_editor); load_auton_event(); }
 static void goto_diag(lv_event_t *e) { show_page(page_diag); }
 
 void auton_btn_cb(lv_event_t * e) {
@@ -472,6 +473,7 @@ static lv_obj_t* list_inner;
 static char number_input[16];        // current typed number (as string)
 static lv_obj_t* active_button = NULL; // button that was clicked to open popup
 lv_obj_t* display_label;
+void save_auton_event(lv_event_t* e);
 
 //Colors
 lv_color_t purple = lv_palette_main(LV_PALETTE_PURPLE);
@@ -720,6 +722,35 @@ void open_number_dir_popup(lv_event_t* e) {
     lv_obj_add_event_cb(btn_enter, enter_event, LV_EVENT_CLICKED, NULL);
 }
 
+void open_options_popup(lv_event_t* e) {
+    lv_obj_t* parent = lv_scr_act();
+    lv_obj_t* popup = lv_obj_create(parent);
+    lv_obj_set_size(popup, 160, 190);
+    lv_obj_clear_flag(popup, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_align(popup, LV_ALIGN_CENTER, 80, 0);
+    lv_obj_set_style_bg_color(popup, purple, 0);
+    lv_obj_set_style_border_width(popup, 0, 0);
+    lv_obj_set_style_border_color(popup, purple, 0);
+
+    // Save button
+    lv_obj_t* btn_save = lv_btn_create(popup);
+    lv_obj_set_size(btn_save, 150, 40);
+    lv_obj_align(btn_save, LV_ALIGN_CENTER, 0, -65);
+    lv_obj_t* lbl_save = lv_label_create(btn_save);
+    lv_label_set_text(lbl_save, "Save");
+    lv_obj_center(lbl_save);
+    lv_obj_add_event_cb(btn_save, save_auton_event, LV_EVENT_CLICKED, NULL);
+    //20 for above close, 25 is spaceing (5 gap)
+    // Close button
+    lv_obj_t* btn_close = lv_btn_create(popup);
+    lv_obj_set_size(btn_close, 150, 40);
+    lv_obj_align(btn_close, LV_ALIGN_CENTER, 0, 65);
+    lv_obj_t* lbl_close = lv_label_create(btn_close);
+    lv_label_set_text(lbl_close, "Close");
+    lv_obj_center(lbl_close);
+    lv_obj_add_event_cb(btn_close, enter_event, LV_EVENT_CLICKED, NULL);
+}
+
 lv_obj_t* create_number_button(lv_obj_t* parent, const char* text, int type) {
     lv_obj_t* btn = lv_btn_create(parent);
     lv_obj_set_size(btn, 50, 30);
@@ -749,28 +780,26 @@ lv_obj_t* create_command_bar(lv_obj_t* parent, const char* type) {
     lv_obj_set_style_flex_cross_place(bar, LV_FLEX_ALIGN_CENTER, 0); // Center items vertically
     lv_obj_set_style_pad_all(bar, 4, 0);
     lv_obj_clear_flag(bar, LV_OBJ_FLAG_SCROLLABLE);
-    if (type == "move") {
+    if (strcmp(type, "move") == 0) {
         lv_obj_set_style_bg_color(bar, yellow, 0);
-        lv_label_set_text(lv_label_create(bar), "Move to");
-        lv_label_set_text(lv_label_create(bar), "x:");
+        lv_label_set_text(lv_label_create(bar), "Move to x,y:");
         create_number_button(bar, "0",0);
-        lv_label_set_text(lv_label_create(bar), "y:");
         create_number_button(bar, "0",0);
         lv_label_set_text(lv_label_create(bar), "dir:");
         create_number_button(bar, "0",2);
-    } else if (type == "wait") {
+    } else if (strcmp(type, "wait") == 0) {
         lv_obj_set_style_bg_color(bar, green, 0);
         lv_label_set_text(lv_label_create(bar), "Wait");
         create_number_button(bar, "0",0);
         lv_label_set_text(lv_label_create(bar), "sec");
-    } else if (type == "motor") {
+    } else if (strcmp(type, "motor") == 0) {
         lv_obj_set_style_bg_color(bar, blue, 0);
         lv_label_set_text(lv_label_create(bar), "Spin");
         lv_obj_t* motor = lv_dropdown_create(bar);
         lv_dropdown_set_options(motor, "Intake Top\nIntake Middle\nIntake Bottom");
         lv_label_set_text(lv_label_create(bar), "at");
         create_number_button(bar, "0",1);
-    } else if (type == "piston") {
+    } else if (strcmp(type, "piston") == 0) {
         lv_obj_set_style_bg_color(bar, red, 0);
         lv_label_set_text(lv_label_create(bar), "Toggle");
         lv_obj_t* piston = lv_dropdown_create(bar);
@@ -778,13 +807,14 @@ lv_obj_t* create_command_bar(lv_obj_t* parent, const char* type) {
         lv_label_set_text(lv_label_create(bar), "to");
         lv_obj_t* sw = lv_switch_create(bar);
     }
-    
     return bar;
 }
 
 // List to store bars
 void update_list_position() {
     lv_obj_set_y(list_inner, -visible_offset * 55); // Move the inner container to simulate scrolling
+    printf("Visible offset: %d\n", visible_offset);
+    printf ("Inner list has %d children\n", (int)lv_obj_get_child_cnt(list_inner));
 }
 
 void highlight_selected() {
@@ -844,18 +874,10 @@ void build_editor_page() {
 
     // ===== INNER LIST =====
     list_inner = lv_obj_create(list_view);
-    lv_obj_set_size(list_inner, 395, 999999);
-    lv_obj_set_pos(list_inner, 0, 0);
+    lv_obj_set_size(list_inner, 395, LV_SIZE_CONTENT); // very tall to allow many items
     lv_obj_set_flex_flow(list_inner, LV_FLEX_FLOW_COLUMN);
+    lv_obj_set_style_pad_row(list_inner, 4, 0); // spacing between bars
     lv_obj_clear_flag(list_inner, LV_OBJ_FLAG_SCROLLABLE);
-
-    // Populate example bars
-    create_command_bar(list_inner, "move");
-    create_command_bar(list_inner, "wait");
-    create_command_bar(list_inner, "motor");
-    create_command_bar(list_inner, "piston");
-    create_command_bar(list_inner, "wait");
-    create_command_bar(list_inner, "move");
 
     highlight_selected();
 
@@ -895,12 +917,199 @@ void build_editor_page() {
     lv_label_set_text(lbl_down, "Down");
     lv_obj_center(lbl_down);
     
-    // Back button
-    lv_obj_t *btn_back = lv_btn_create(page_editor);
-    lv_obj_set_size(btn_back, 70, 30);
-    lv_obj_set_pos(btn_back, 405, 200);
-    lv_obj_add_event_cb(btn_back, goto_home, LV_EVENT_CLICKED, NULL);
-    lv_label_set_text(lv_label_create(btn_back), "Home");
+    // Options button
+    lv_obj_t *btn_options = lv_btn_create(page_editor);
+    lv_obj_set_size(btn_options, 70, 40);
+    lv_obj_set_pos(btn_options, 405, 185);
+    lv_obj_add_event_cb(btn_options, open_options_popup, LV_EVENT_CLICKED, NULL);
+    lv_obj_t *lbl_options = lv_label_create(btn_options);
+    lv_label_set_text(lbl_options, "OPT");
+    lv_obj_center(lbl_down);
+}
+
+void save_auton_event(lv_event_t* e) {
+    // Open file on SD card (adjust path if you want to use `/usd/auton.txt`)
+    std::ofstream file("/usd/auton.txt");
+    if (!file.is_open()) {
+        printf("Failed to open file!\n");
+        return;
+    }
+    uint32_t count = lv_obj_get_child_cnt(list_inner);
+    for (uint32_t i = 0; i < count; i++) {
+        lv_obj_t* bar = lv_obj_get_child(list_inner, i);
+        lv_color_t bg = lv_obj_get_style_bg_color(bar, 0);
+        // We'll detect type by color (or you can add a hidden label to store "type")
+        std::string type;
+        char cmd_letter = '?';
+        if (lv_color_to32(bg) == lv_color_to32(lv_palette_main(LV_PALETTE_YELLOW))) {
+            type = "move";
+            cmd_letter = 'm';
+        } else if (lv_color_to32(bg) == lv_color_to32(lv_palette_main(LV_PALETTE_GREEN))) {
+            type = "wait";
+            cmd_letter = 'w';
+        } else if (lv_color_to32(bg) == lv_color_to32(lv_palette_main(LV_PALETTE_BLUE))) {
+            type = "motor";
+            cmd_letter = 's';
+        } else if (lv_color_to32(bg) == lv_color_to32(lv_palette_main(LV_PALETTE_RED))) {
+            type = "piston";
+            cmd_letter = 'p';
+        }
+        std::string line;
+        // === Move Command ===
+        if (type == "move") {
+            // Child structure: [“Move to x,y:”][btnX][btnY][“dir:”][btnDir]
+            lv_obj_t* btnX = lv_obj_get_child(bar, 1);
+            lv_obj_t* btnY = lv_obj_get_child(bar, 2);
+            lv_obj_t* btnDir = lv_obj_get_child(bar, 4);
+            const char* x = lv_label_get_text(lv_obj_get_child(btnX, 0));
+            const char* y = lv_label_get_text(lv_obj_get_child(btnY, 0));
+            const char* dir = lv_label_get_text(lv_obj_get_child(btnDir, 0));
+            line = "m,r," + std::string(x) + "," + std::string(y) + "," + std::string(dir);
+        }
+        // === Wait Command ===
+        else if (type == "wait") {
+            // Structure: [“Wait”][btn][“sec”]
+            lv_obj_t* btn = lv_obj_get_child(bar, 1);
+            const char* sec = lv_label_get_text(lv_obj_get_child(btn, 0));
+            line = "w,r," + std::string(sec);
+        }
+        // === Motor Command ===
+        else if (type == "motor") {
+            // [“Spin”][dropdown][“at”][btn]
+            lv_obj_t* dropdown = lv_obj_get_child(bar, 1);
+            lv_obj_t* btn = lv_obj_get_child(bar, 3);
+            const char* speed = lv_label_get_text(lv_obj_get_child(btn, 0));
+            // Find dropdown selected option
+            char buffer[32];
+            lv_dropdown_get_selected_str(dropdown, buffer, sizeof(buffer));
+            char motor_letter = 'a'; // default
+            if (strcmp(buffer, "Intake Top") == 0) motor_letter = 'a';
+            else if (strcmp(buffer, "Intake Middle") == 0) motor_letter = 'b';
+            else if (strcmp(buffer, "Intake Bottom") == 0) motor_letter = 'c';
+            line = "s," + std::string(1, motor_letter) + "," + std::string(speed);
+        }
+        // === Piston Command ===
+        else if (type == "piston") {
+            // [“Toggle”][dropdown][“to”][switch]
+            lv_obj_t* dropdown = lv_obj_get_child(bar, 1);
+            lv_obj_t* sw = lv_obj_get_child(bar, 3);
+            char buffer[32];
+            lv_dropdown_get_selected_str(dropdown, buffer, sizeof(buffer));
+            char piston_letter = 'd'; // default
+            if (strcmp(buffer, "Descore") == 0) piston_letter = 'd';
+            else if (strcmp(buffer, "Weedwacker") == 0) piston_letter = 'w';
+            int state = lv_obj_has_state(sw, LV_STATE_CHECKED) ? 1 : 0;
+            line = "p," + std::string(1, piston_letter) + "," + std::to_string(state);
+        }
+        file << line << "\n"; // Write to file
+    }
+    file.close();
+    printf("Auton saved!\n");
+}
+
+void load_auton_event() {
+    std::ifstream file("/usd/auton.txt");
+    if (!file.is_open()) {
+        printf("Failed to open file!\n");
+        return;
+    }
+    // Clear existing bars
+    lv_obj_clean(list_inner); // Clear existing bars first
+    lv_obj_clear_flag(list_inner, LV_OBJ_FLAG_HIDDEN);
+    std::string line;
+    while (std::getline(file, line)) {
+        if (line.empty()) {
+            printf("Empty line in auton file, skipping.\n"); 
+            continue;
+        }
+        printf("Read line: %s\n", line.c_str());
+        char cmd = line[0];
+        lv_obj_t* bar = NULL;
+        if (cmd == 'm') {
+            // Move command: m,r,x,y,dir
+            bar = create_command_bar(list_inner, "move");
+            size_t pos1 = line.find(',', 4);
+            size_t pos2 = line.find(',', pos1 + 1);
+            size_t pos3 = line.find(',', pos2 + 1);
+
+            std::string x = line.substr(4, pos1 - 4);
+            std::string y = line.substr(pos1 + 1, pos2 - pos1 - 1);
+            std::string dir = line.substr(pos2 + 1);
+
+            lv_obj_t* btnX = lv_obj_get_child(bar, 1);
+            lv_obj_t* btnY = lv_obj_get_child(bar, 2);
+            lv_obj_t* btnDir = lv_obj_get_child(bar, 4);
+
+            lv_label_set_text(lv_obj_get_child(btnX, 0), x.c_str());
+            lv_label_set_text(lv_obj_get_child(btnY, 0), y.c_str());
+            lv_label_set_text(lv_obj_get_child(btnDir, 0), dir.c_str());
+
+            printf("Created move bar\n");
+        } 
+        else if (cmd == 'w') {
+            // Wait command: w,r,seconds
+            bar = create_command_bar(list_inner, "wait");
+            std::string sec = line.substr(4);
+            lv_obj_t* btn = lv_obj_get_child(bar, 1);
+            lv_label_set_text(lv_obj_get_child(btn, 0), sec.c_str());
+        } 
+        else if (cmd == 's') {
+            // Motor command: s,motor_letter,speed
+            bar = create_command_bar(list_inner, "motor");
+            char motor_letter = line[2];
+            std::string speed = line.substr(4);
+
+            lv_obj_t* dropdown = lv_obj_get_child(bar, 1);
+            lv_obj_t* btn = lv_obj_get_child(bar, 3);
+
+            if (motor_letter == 'a') lv_dropdown_set_selected(dropdown, 0);
+            else if (motor_letter == 'b') lv_dropdown_set_selected(dropdown, 1);
+            else if (motor_letter == 'c') lv_dropdown_set_selected(dropdown, 2);
+
+            lv_label_set_text(lv_obj_get_child(btn, 0), speed.c_str());
+        } 
+        else if (cmd == 'p') {
+            // Piston command: p,piston_letter,state
+            bar = create_command_bar(list_inner, "piston");
+            char piston_letter = line[2];
+            std::string state_str = line.substr(4);
+
+            lv_obj_t* dropdown = lv_obj_get_child(bar, 1);
+            lv_obj_t* sw = lv_obj_get_child(bar, 3);
+
+            if (piston_letter == 'd') lv_dropdown_set_selected(dropdown, 0);
+            else if (piston_letter == 'w') lv_dropdown_set_selected(dropdown, 1);
+
+            if (state_str == "1") lv_obj_add_state(sw, LV_STATE_CHECKED);
+            else lv_obj_clear_state(sw, LV_STATE_CHECKED);
+        }
+        else {
+            printf("Unknown command type: %c\n", cmd);
+            continue; // skip unknown commands
+        }
+        lv_obj_update_layout(list_inner); // Update layout after adding
+        printf("Bar %p: x=%d y=%d w=%d h=%d hidden=%d children=%d\n", bar,
+       (int)lv_obj_get_x(bar),
+       (int)lv_obj_get_y(bar),
+       (int)lv_obj_get_width(bar),
+       (int)lv_obj_get_height(bar),
+       lv_obj_has_flag(bar, LV_OBJ_FLAG_HIDDEN),
+       (int)lv_obj_get_child_cnt(bar));
+    }
+    file.close();
+    // After loading, make sure to refresh selection / list
+    selected_index = 0;
+    visible_offset = 0;
+    update_list_position();
+    highlight_selected();
+    lv_obj_update_layout(list_inner); // Update layout after adding
+    printf("Parent: %p, hidden=%d, opa=%d, w=%d, h=%d\n",
+       list_inner,
+       lv_obj_has_flag(list_inner, LV_OBJ_FLAG_HIDDEN),
+       lv_obj_get_style_bg_opa(list_inner, 0),
+       lv_obj_get_width(list_inner),
+       lv_obj_get_height(list_inner));
+
 }
 
 void Setup_lvgl_selector() {
