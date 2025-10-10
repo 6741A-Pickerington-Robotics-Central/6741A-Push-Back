@@ -1,13 +1,5 @@
 #pragma once
-#include "liblvgl/lvgl.h"
-#include <string>
-#include <fstream>
-
-// Optional forward declarations if you have them elsewhere
-extern lv_color_t yellow;
-extern lv_color_t green;
-extern lv_color_t blue;
-extern lv_color_t red;
+#include "robot/ui/ui_main.hpp"
 
 // Forward declare helper function from your code
 lv_obj_t* create_number_button(lv_obj_t* parent, const char* text, int id);

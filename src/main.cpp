@@ -1,8 +1,4 @@
-#include "main.h" // Include the main header for the PROS library
-#include "p_selector.h" // Include the selector header for the auton selector
-#include "pros/misc.hpp"
-#include "liblvgl/lvgl.h"
-#include <map>
+#include "ui_main.hpp" // Refrences to entire robot
 
 void screenTaskFunction(); // Forward declaration of the screen task function
 

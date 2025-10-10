@@ -1,15 +1,4 @@
-#include "pros/motors.h"
-#include "pros/rtos.hpp"
-#include "selector.h"
-#include <cstdio>
-#include <fstream>
-#include <ios>
-#include <iostream>
-#include <sstream>
-#include <vector>
-#include <string>
-#include "liblvgl/lvgl.h"
-#include "commandbar.hpp"
+#include "robot/ui/ui_main.hpp"
 
 std::string selected_auton = "";
 const int TEMP_THRESHOLD = 50; // Temperature threshold for highlighting
@@ -45,7 +34,6 @@ void runauton(void) {
     rightMotors.set_brake_mode(pros::E_MOTOR_BRAKE_COAST); // Set right motors to coast mode
     running = false; // Set the running flag to false after the auton is complete
 }
-#endif
 
 void runtxtauton(std::vector<std::string> list) {
     chassis.setPose(0, 0, 0); // Reset the chassis pose to (0, 0, 0) before running the auton
@@ -53,7 +41,6 @@ void runtxtauton(std::vector<std::string> list) {
       printf("The list is empty. No action taken.\n");
       return;
     }
-    printf("Running a txt auton: %i\n", selectedautontoedit);
     // Iterate through the list
     for (const auto& item : list) {
       printf("Processing item: %s\n", item.c_str());  // Debugging line
@@ -125,7 +112,6 @@ void runtxtauton(std::vector<std::string> list) {
 
             }
             default:  // Handle other cases
-                ADIWrapper* matchingDevice = findADIByLetter(firstLetter);
                 if (matchingDevice) {
                     printf("Processing '%s': Found matching ADIWrapper '%c'.\n", item.c_str(), firstLetter);
                     const char* numStr = item.c_str() + 1;  // Skip the first letter
@@ -137,8 +123,7 @@ void runtxtauton(std::vector<std::string> list) {
                     }
                 } else {
                     printf("No matching ADIWrapper found for letter '%c'.\n", firstLetter);
-                }
-                MotorWrapper* matchingMotor = findMotorByLetter(firstLetter); // Search for a MotorWrapper with a matching letter      
+                }  
                 if (matchingMotor) {
                     printf("Processing '%s': Found matching MotorWrapper '%c'.\n", item.c_str(), firstLetter);
 
@@ -160,6 +145,7 @@ void runtxtauton(std::vector<std::string> list) {
       }
     }
 }  
+#endif
 
 // Page containers
 lv_obj_t *page_home;
