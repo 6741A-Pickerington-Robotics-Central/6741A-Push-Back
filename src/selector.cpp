@@ -1,10 +1,5 @@
 #include "robot/ui/ui_main.hpp"
 
-std::string selected_auton = "";
-const int TEMP_THRESHOLD = 50; // Temperature threshold for highlighting
-lv_obj_t *btn_diag;
-bool any_motor_over_temp = false;
-
 void load_auton_event();
 
 /////////////////////////////////////////////
@@ -158,26 +153,6 @@ lv_obj_t *device_label_port;
 lv_obj_t *device_label_temp;
 int current_device_port = -1;
 bool current_device_is_motor = false;
-
-// Simple device list (you can expand this)
-struct Device {
-    std::string name;
-    int port;
-    bool is_motor;
-    bool is_drive;
-};
-
-std::vector<Device> devices = {
-    {"Left Front Drive Motor", 16, true, true},
-    {"Left Middle Drive Motor", 18, true, true},
-    {"Left Back Drive Motor", 19, true, true},
-    {"Right Front Drive Motor", 15, true, true},
-    {"Right Middle Drive Motor", 13, true, true},
-    {"Right back Drive Motor", 11, true, true},
-    {"Intake Motor 1", 3, true},
-    {"Intake Motor 2", 10, true},
-    {"Intake Motor 3", 8, true}
-};
 
 // --- Utility: Show one page, hide others ---
 void show_page(lv_obj_t *page) {
@@ -437,115 +412,18 @@ void build_diag_page() {
 
 // --- Editor Page ---
 
-// Track selection
-static int selected_index = 0;
-static int visible_offset = 0;
-static const int VISIBLE_COUNT = 3; // number of visible containers
-static lv_obj_t* list_inner;
-static char number_input[16];        // current typed number (as string)
-static lv_obj_t* active_button = NULL; // button that was clicked to open popup
-lv_obj_t* display_label;
-void save_auton_event(lv_event_t* e);
-
-//Colors
-lv_color_t purple = lv_palette_main(LV_PALETTE_PURPLE);
-lv_color_t red    = lv_palette_main(LV_PALETTE_RED);
-lv_color_t green  = lv_palette_main(LV_PALETTE_GREEN);
-lv_color_t blue   = lv_palette_main(LV_PALETTE_BLUE);
-lv_color_t yellow = lv_palette_main(LV_PALETTE_YELLOW);
-
-// Open a popup to enter a number
-void number_key_event(lv_event_t* e) {
-    lv_obj_t* btn = lv_event_get_target(e);
-    const char* digit = lv_label_get_text(lv_obj_get_child(btn, 0));
-    int len = strlen(number_input);
-    if (len < 15) {
-        number_input[len] = digit[0];
-        number_input[len+1] = '\0';
-    }
-    // update popup display
-    lv_obj_t* popup_label = (lv_obj_t*)lv_event_get_user_data(e);
-    lv_label_set_text(popup_label, number_input);
-}
-
-void dot_key_event(lv_event_t* e) {
-    lv_obj_t* btn = lv_event_get_target(e);
-    const char* digit = ".";
-    int len = strlen(number_input);
-    if (len < 15) {
-        number_input[len] = digit[0];
-        number_input[len+1] = '\0';
-    }
-    // update popup display
-    lv_obj_t* popup_label = (lv_obj_t*)lv_event_get_user_data(e);
-    lv_label_set_text(popup_label, number_input);
-}
-
-void backspace_event(lv_event_t* e) {
-    int len = strlen(number_input);
-    if (len > 0) number_input[len-1] = '\0';
-    lv_obj_t* popup_label = (lv_obj_t*)lv_event_get_user_data(e);
-    lv_label_set_text(popup_label, number_input);
-}
-
-void enter_event(lv_event_t* e) {
-    if (active_button) {
-        if (number_input[0] == '\0') {
-            // number_input is blank → show "0"
-            strcpy(number_input, "0");
-            lv_label_set_text(lv_obj_get_child(active_button, 0), "0");
-        } else {
-            // number_input has content → show that instead
-            lv_label_set_text(lv_obj_get_child(active_button, 0), number_input);
-        }
-    }
-    // Delete the popup container (parent of the Enter button)
-    lv_obj_t* popup = lv_obj_get_parent(lv_event_get_current_target(e));
-    lv_obj_del(popup);
-    active_button = NULL;
-}
-
-void open_options_popup(lv_event_t* e) {
-    lv_obj_t* parent = lv_scr_act();
-    lv_obj_t* popup = lv_obj_create(parent);
-    lv_obj_set_size(popup, 160, 190);
-    lv_obj_clear_flag(popup, LV_OBJ_FLAG_SCROLLABLE);
-    lv_obj_align(popup, LV_ALIGN_CENTER, 80, 0);
-    lv_obj_set_style_bg_color(popup, purple, 0);
-    lv_obj_set_style_border_width(popup, 0, 0);
-    lv_obj_set_style_border_color(popup, purple, 0);
-
-    // Save button
-    lv_obj_t* btn_save = lv_btn_create(popup);
-    lv_obj_set_size(btn_save, 150, 40);
-    lv_obj_align(btn_save, LV_ALIGN_CENTER, 0, -65);
-    lv_obj_t* lbl_save = lv_label_create(btn_save);
-    lv_label_set_text(lbl_save, "Save");
-    lv_obj_center(lbl_save);
-    lv_obj_add_event_cb(btn_save, save_auton_event, LV_EVENT_CLICKED, NULL);
-    //20 for above close, 25 is spaceing (5 gap)
-    // Close button
-    lv_obj_t* btn_close = lv_btn_create(popup);
-    lv_obj_set_size(btn_close, 150, 40);
-    lv_obj_align(btn_close, LV_ALIGN_CENTER, 0, 65);
-    lv_obj_t* lbl_close = lv_label_create(btn_close);
-    lv_label_set_text(lbl_close, "Close");
-    lv_obj_center(lbl_close);
-    lv_obj_add_event_cb(btn_close, enter_event, LV_EVENT_CLICKED, NULL);
-}
-
 lv_obj_t* create_number_button(lv_obj_t* parent, const char* text, int type) {
     lv_obj_t* btn = lv_btn_create(parent);
     lv_obj_set_size(btn, 50, 30);
     if (type == 0)
     {
-        lv_obj_add_event_cb(btn, NumberKeyPopup::open, LV_EVENT_CLICKED, NULL);
+        lv_obj_add_event_cb(btn, PopupManager::openNumberKey, LV_EVENT_CLICKED, NULL);
     } else if (type == 1)
     {
-        lv_obj_add_event_cb(btn, NumberSpeedPopup::open, LV_EVENT_CLICKED, NULL);
+        lv_obj_add_event_cb(btn, PopupManager::openSpeed, LV_EVENT_CLICKED, NULL);
     } else if (type == 2)
     {
-        lv_obj_add_event_cb(btn, NumberDirPopup::open, LV_EVENT_CLICKED, NULL);
+        lv_obj_add_event_cb(btn, PopupManager::openDir, LV_EVENT_CLICKED, NULL);
     }
     lv_obj_t* lbl = lv_label_create(btn);
     lv_label_set_text(lbl, text);
@@ -665,7 +543,7 @@ void build_editor_page() {
     lv_obj_t *btn_options = lv_btn_create(page_editor);
     lv_obj_set_size(btn_options, 70, 40);
     lv_obj_set_pos(btn_options, 405, 185);
-    lv_obj_add_event_cb(btn_options, open_options_popup, LV_EVENT_CLICKED, NULL);
+    lv_obj_add_event_cb(btn_options, PopupManager::openOptions, LV_EVENT_CLICKED, NULL);
     lv_obj_t *lbl_options = lv_label_create(btn_options);
     lv_label_set_text(lbl_options, "OPT");
     lv_obj_center(lbl_down);

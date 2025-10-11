@@ -1,14 +1,18 @@
 #pragma once
 #include "robot/ui/ui_main.hpp"
 
-// Forward declare helper function from your code
-lv_obj_t* create_number_button(lv_obj_t* parent, const char* text, int id);
-
+/**
+ * @brief A command bar representing a single robot action.
+ *
+ * This class encapsulates the LVGL objects and logic for a command bar,
+ * which can represent different types of robot commands such as move, wait,
+ * motor control, or piston control. It provides methods to create, serialize,
+ * and deserialize the command bar state.
+ */
 class CommandBar {
-    public:
+public:
     lv_obj_t* bar;        // Root LVGL object for this command
     std::string type;     // "move", "wait", "motor", or "piston"
-
     // === Factory ===
     static CommandBar create(lv_obj_t* parent, const std::string& type) {
         CommandBar cmd;
@@ -25,7 +29,6 @@ class CommandBar {
         cmd.build();
         return cmd;
     }
-
     // === Serialize (convert LVGL state -> string line) ===
     std::string serialize() const {
         if (type == "move") {
@@ -67,7 +70,6 @@ class CommandBar {
         }
         return "";
     }
-
     // === Deserialize (load string data -> LVGL UI) ===
     void deserialize(const std::string& line) {
         if (type == "move") {
@@ -110,8 +112,7 @@ class CommandBar {
             else lv_obj_clear_state(sw, LV_STATE_CHECKED);
         }
     }
-
-    private:
+private:
     // === UI builder based on type ===
     void build() {
         if (type == "move") {
@@ -145,7 +146,6 @@ class CommandBar {
             lv_switch_create(bar);
         }
     }
-
     // === Helper: Split string by comma ===
     static std::vector<std::string> split(const std::string& s, char delimiter) {
         std::vector<std::string> tokens;

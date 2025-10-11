@@ -1,50 +1,11 @@
 #pragma once
 #include "robot/ui/ui_main.hpp"
 
-// =============================
-// Base Class: PopupBase
-// =============================
-class PopupBase {
-protected:
-    lv_obj_t* popup = nullptr;
-    lv_obj_t* display_label = nullptr;
-
-public:
-    virtual ~PopupBase() {
-        if (popup) lv_obj_del(popup);
-    }
-
-    // Create popup contents
-    virtual void create(lv_obj_t* parent) = 0;
-
-    // Hide popup
-    void close() {
-        if (popup) {
-            lv_obj_del(popup);
-            popup = nullptr;
-        }
-    }
-
-    lv_obj_t* get_obj() const { return popup; }
-};
-
-// =============================
-// Helper: Add a simple button
-// =============================
-inline lv_obj_t* add_button(lv_obj_t* parent, const char* text, lv_event_cb_t callback, void* user_data = nullptr) {
-    lv_obj_t* btn = lv_btn_create(parent);
-    lv_obj_set_size(btn, 50, 50);
-    lv_obj_t* lbl = lv_label_create(btn);
-    lv_label_set_text(lbl, text);
-    lv_obj_center(lbl);
-    lv_obj_add_event_cb(btn, callback, LV_EVENT_CLICKED, user_data);
-    return btn;
-}
-
-// =============================
-// Number Key Popup
-// =============================
-
+/**
+ * @brief Popup for setting any number.
+ *
+ * Shows a numpad and allows the user to type any number including doubles.
+ */
 class NumberKeyPopup {
 private:
     static inline lv_obj_t* active_button = nullptr;
@@ -168,10 +129,11 @@ public:
     }
 };
 
-// =============================
-// Speed Popup
-// =============================
-
+/**
+ * @brief Popup for setting speed.
+ *
+ * Shows a 270° arc and allows the user to select a speed value from 0-270.
+ */
 class NumberSpeedPopup {
 private:
     static inline lv_obj_t* active_button = nullptr;
@@ -236,10 +198,11 @@ public:
     }
 };
 
-// =============================
-// Dir Popup
-// =============================
-
+/**
+ * @brief Popup for setting directions.
+ *
+ * Shows a 360° arc and allows the user to select a direction value.
+ */
 class NumberDirPopup {
 private:
     static inline lv_obj_t* active_button = nullptr;
@@ -309,40 +272,164 @@ public:
     }
 };
 
-// =============================
-// Options Popup (Dropdown)
-// =============================
-class OptionsPopup : public PopupBase {
+/**
+ * @brief Popup for auton editor options like save and return to home screen.
+ *
+ * Shows a box on the side of the screen and allows the user to do some actions with the editor.
+ */
+class OptionsPopup {
 private:
-    lv_obj_t* active_button;
-    const char* options;
+    static inline lv_obj_t* popup = nullptr;
+    // Close button event
+    static void close_event(lv_event_t* e) {
+        if (popup) {
+            lv_obj_del(popup);
+            popup = nullptr;
+        }
+    }
+    // Home button event
+    static void go_home_close_event(lv_event_t* e) {
+        if (popup) {
+            lv_obj_del(popup);
+            popup = nullptr;
+        }
+        goto_home(e);
+    }
+public:
+    static void open(lv_event_t* e) {
+        lv_obj_t* parent = lv_scr_act();
+        popup = lv_obj_create(parent);
+        lv_obj_set_size(popup, 160, 190);
+        lv_obj_clear_flag(popup, LV_OBJ_FLAG_SCROLLABLE);
+        lv_obj_align(popup, LV_ALIGN_CENTER, 80, 0);
+        lv_obj_set_style_bg_color(popup, purple, 0);
+        lv_obj_set_style_border_width(popup, 0, 0);
+        lv_obj_set_style_border_color(popup, purple, 0);
+        // Save button
+        lv_obj_t* btn_save = lv_btn_create(popup);
+        lv_obj_set_size(btn_save, 150, 40);
+        lv_obj_align(btn_save, LV_ALIGN_CENTER, 0, -65);
+        lv_obj_t* lbl_save = lv_label_create(btn_save);
+        lv_label_set_text(lbl_save, "Save");
+        lv_obj_center(lbl_save);
+        lv_obj_add_event_cb(btn_save, save_auton_event, LV_EVENT_CLICKED, nullptr);
+        // Home button
+        lv_obj_t* btn_home = lv_btn_create(popup);
+        lv_obj_set_size(btn_home, 150, 40);
+        lv_obj_align(btn_home, LV_ALIGN_CENTER, 0, 20);
+        lv_obj_t* lbl_home = lv_label_create(btn_home);
+        lv_label_set_text(lbl_home, "Home");
+        lv_obj_center(lbl_home);
+        lv_obj_add_event_cb(btn_home, go_home_close_event, LV_EVENT_CLICKED, nullptr);
+        // Close button
+        lv_obj_t* btn_close = lv_btn_create(popup);
+        lv_obj_set_size(btn_close, 150, 40);
+        lv_obj_align(btn_close, LV_ALIGN_CENTER, 0, 65);
+        lv_obj_t* lbl_close = lv_label_create(btn_close);
+        lv_label_set_text(lbl_close, "Close");
+        lv_obj_center(lbl_close);
+        lv_obj_add_event_cb(btn_close, close_event, LV_EVENT_CLICKED, nullptr);
+    }
+};
 
-    static void confirm_cb(lv_event_t* e) {
-        auto self = static_cast<OptionsPopup*>(lv_event_get_user_data(e));
-        lv_obj_t* dropdown = static_cast<lv_obj_t*>(lv_event_get_user_data(e));
-        uint16_t selected = lv_dropdown_get_selected(dropdown);
-        char buf[64];
-        lv_dropdown_get_selected_str(dropdown, buf, sizeof(buf));
-        lv_label_set_text(lv_obj_get_child(self->active_button, 0), buf);
-        self->close();
+/**
+ * @brief Popup for adding a command to the auton sequence.
+ * 
+ */
+class AddCommandPopup {
+private:
+    static inline lv_obj_t* popup = nullptr;
+    struct CmdData {
+        const char* type;
+        lv_obj_t* selected_bar;
+    };
+    static void add_command_event(lv_event_t* e) {
+        CmdData* data = (CmdData*)lv_event_get_user_data(e);
+        if (!data || !data->selected_bar) return;
+        lv_obj_t* container = lv_obj_get_parent(data->selected_bar);
+        // Create new CommandBar
+        CommandBar new_bar = CommandBar::create(container, data->type);
+        // Insert it **after** the selected bar
+        lv_obj_move_to_index(new_bar.bar, lv_obj_get_index(data->selected_bar) + 1);
+        // Optional: refresh highlight / selection
+        //highlight_selected();
+        // Close popup
+        if (popup) {
+            lv_obj_del(popup);
+            popup = nullptr;
+        }
     }
 
 public:
-    OptionsPopup(lv_obj_t* button, const char* opts)
-        : active_button(button), options(opts) {}
-
-    void create(lv_obj_t* parent) override {
+    static void open(lv_obj_t* selected_bar) {
+        lv_obj_t* parent = lv_scr_act();
         popup = lv_obj_create(parent);
-        lv_obj_set_size(popup, 200, 120);
-        lv_obj_align(popup, LV_ALIGN_CENTER, 0, 0);
+        lv_obj_set_size(popup, 160, 190);
         lv_obj_clear_flag(popup, LV_OBJ_FLAG_SCROLLABLE);
+        lv_obj_align(popup, LV_ALIGN_CENTER, 80, 0);
         lv_obj_set_style_bg_color(popup, purple, 0);
+        lv_obj_set_style_border_width(popup, 0, 0);
+        lv_obj_set_style_border_color(popup, purple, 0);
 
-        lv_obj_t* dropdown = lv_dropdown_create(popup);
-        lv_dropdown_set_options(dropdown, options);
-        lv_obj_center(dropdown);
+        const char* types[4] = {"move", "wait", "motor", "piston"};
 
-        lv_obj_t* confirm = add_button(popup, "✔", confirm_cb, this);
-        lv_obj_align(confirm, LV_ALIGN_BOTTOM_MID, 0, -5);
+        for (int i = 0; i < 4; i++) {
+            lv_obj_t* btn = lv_btn_create(popup);
+            lv_obj_set_size(btn, 140, 35);
+            lv_obj_align(btn, LV_ALIGN_TOP_MID, 0, i * 45 + 10);
+
+            lv_obj_t* lbl = lv_label_create(btn);
+            lv_label_set_text(lbl, types[i]);
+            lv_obj_center(lbl);
+            // Pass both type and selected bar
+            CmdData* data = new CmdData{types[i], selected_bar};
+            lv_obj_add_event_cb(btn, add_command_event, LV_EVENT_CLICKED, data);
+        }
     }
 };
+
+
+/**
+ * @brief Popup manager for all popups.
+ *
+ * Provides static methods to open different types of popups:\n
+ * \li `openNumberKey(lv_event_t* e)` : Opens a keypad popup.
+ * \li `openSpeed(lv_event_t* e)`     : Opens a speed selector popup.
+ * \li `openDir(lv_event_t* e)`       : Opens a direction selector popup.
+ * \li `openOptions(lv_event_t* e)`   : Opens the options popup.\n
+ *
+ * Example usage:\n
+ * \code
+ * PopupManager::openNumberKey(event);
+ * PopupManager::openOptions(event);
+ * \endcode
+ */
+class PopupManager {
+public:
+    // Open number key popup
+    static void openNumberKey(lv_event_t* e) {
+        NumberKeyPopup::open(e);
+    }
+
+    // Open speed popup
+    static void openSpeed(lv_event_t* e) {
+        NumberSpeedPopup::open(e);
+    }
+
+    // Open direction popup
+    static void openDir(lv_event_t* e) {
+        NumberDirPopup::open(e);
+    }
+
+    // Open options popup
+    static void openOptions(lv_event_t* e) {
+        OptionsPopup::open(e);
+    }
+
+    // Open add command popup
+    static void openAddCommand(lv_event_t* e) {
+        AddCommandPopup::open(list_inner);
+    }
+};
+
+
