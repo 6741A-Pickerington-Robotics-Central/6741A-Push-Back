@@ -1,6 +1,52 @@
-#include "robot/ui/ui_main.hpp"
+#include "robot/ui/commandbar.hpp"
+#include "robot/ui/popup.hpp"
+#include "robot/robot.hpp"
+// General headers
+#include "pros/motors.h"
+#include "pros/rtos.hpp"
+#include <cstdio>
+#include <fstream>
+#include <ios>
+#include <iostream>
+#include <sstream>
+#include <vector>
+#include <string>
+#include "liblvgl/lvgl.h"
 
 void load_auton_event();
+
+std::string selected_auton = "";
+const int TEMP_THRESHOLD = 50;
+lv_obj_t *btn_diag;
+bool any_motor_over_temp = false;
+int selected_index = 0;
+int visible_offset = 0;
+const int VISIBLE_COUNT = 3;
+lv_obj_t* list_inner = nullptr;
+char number_input[16] = "";
+lv_obj_t* active_button = nullptr;
+lv_obj_t* display_label = nullptr;
+
+
+// Simple device list (you can expand this)
+struct Device {
+    std::string name;
+    int port;
+    bool is_motor;
+    bool is_drive;
+};
+
+std::vector<Device> robotMotors = {
+    {"Left Front Drive Motor", 16, true, true},
+    {"Left Middle Drive Motor", 18, true, true},
+    {"Left Back Drive Motor", 19, true, true},
+    {"Right Front Drive Motor", 15, true, true},
+    {"Right Middle Drive Motor", 13, true, true},
+    {"Right back Drive Motor", 11, true, true},
+    {"Intake Motor 1", 3, true},
+    {"Intake Motor 2", 10, true},
+    {"Intake Motor 3", 8, true}
+};
 
 /////////////////////////////////////////////
 //             Run The Auton               //
@@ -164,9 +210,15 @@ void show_page(lv_obj_t *page) {
 }
 
 // --- Event callbacks for switch pages ---
-static void goto_home(lv_event_t *e) { show_page(page_home); }
-static void goto_editor(lv_event_t *e) { show_page(page_editor); load_auton_event(); }
-static void goto_diag(lv_event_t *e) { show_page(page_diag); }
+void goto_home(lv_event_t *e) { show_page(page_home); }
+void goto_editor(lv_event_t *e) { 
+    show_page(page_editor); 
+    load_auton_event(); 
+    int selected_index = 0;
+    int visible_offset = 0;
+    highlight_selected();
+}
+void goto_diag(lv_event_t *e) { show_page(page_diag); }
 
 void auton_btn_cb(lv_event_t * e) {
     lv_obj_t *btn = lv_event_get_target(e);
@@ -223,20 +275,15 @@ void build_home_page() {
     lv_obj_t *blue_left_btn = lv_list_add_btn(auton_list, NULL, "Blue Left");
     lv_obj_t *blue_right_btn = lv_list_add_btn(auton_list, NULL, "Blue Right");
 
-    lv_obj_set_style_text_opa(lv_obj_get_child(red_left_btn, 0), LV_OPA_COVER, 0);
     lv_obj_set_style_text_color(lv_obj_get_child(red_left_btn, 0), lv_color_hsv_to_rgb(10,255,255), 0);
-    lv_obj_set_style_text_opa(lv_obj_get_child(red_right_btn, 0), LV_OPA_COVER, 0);
     lv_obj_set_style_text_color(lv_obj_get_child(red_right_btn, 0), lv_color_hsv_to_rgb(10,255,255), 0); 
-    lv_obj_set_style_text_opa(lv_obj_get_child(blue_left_btn, 0), LV_OPA_COVER, 0);
     lv_obj_set_style_text_color(lv_obj_get_child(blue_left_btn, 0), lv_color_hsv_to_rgb(200,255,255), 0);
-    lv_obj_set_style_text_opa(lv_obj_get_child(blue_right_btn, 0), LV_OPA_COVER, 0);
     lv_obj_set_style_text_color(lv_obj_get_child(blue_right_btn, 0), lv_color_hsv_to_rgb(200,255,255), 0);
 
     lv_obj_add_event_cb(red_left_btn, auton_btn_cb, LV_EVENT_CLICKED, auton_label);
     lv_obj_add_event_cb(red_right_btn, auton_btn_cb, LV_EVENT_CLICKED, auton_label);
     lv_obj_add_event_cb(blue_left_btn, auton_btn_cb, LV_EVENT_CLICKED, auton_label);
     lv_obj_add_event_cb(blue_right_btn, auton_btn_cb, LV_EVENT_CLICKED, auton_label);
-
 
     // Right half with buttons
     lv_obj_t *button_col = lv_obj_create(main_area);
@@ -364,10 +411,10 @@ void build_diag_page() {
     lv_obj_set_flex_flow(other_col, LV_FLEX_FLOW_COLUMN);
     lv_obj_set_style_pad_all(other_col, 5, 0);
 
-    for (int i = 0; i < devices.size(); i++) {
-        if (!devices[i].is_motor) continue;
+    for (int i = 0; i < robotMotors.size(); i++) {
+        if (!robotMotors[i].is_motor) continue;
         lv_obj_t *lbl;
-        if(devices[i].is_drive) {
+        if(robotMotors[i].is_drive) {
             lv_obj_t *motor_box = lv_obj_create(motor_grid);
             lv_obj_set_size(motor_box, LV_PCT(48), LV_PCT(33));
             lv_obj_clear_flag(motor_box, LV_OBJ_FLAG_SCROLLABLE);
@@ -379,21 +426,21 @@ void build_diag_page() {
             lbl = lv_label_create(other_col);
             lv_obj_center(lbl);
         }
-        pros::Motor m(devices[i].port);
+        pros::Motor m(robotMotors[i].port);
         int temp = m.get_temperature();
         // Initial text
-        if(devices[i].is_drive) {
+        if(robotMotors[i].is_drive) {
             lv_label_set_text_fmt(lbl, "%dC", temp);
         } else {
-            lv_label_set_text_fmt(lbl, "%s - %dC", devices[i].name.c_str(), temp);
+            lv_label_set_text_fmt(lbl, "%s - %dC", robotMotors[i].name.c_str(), temp);
         }
         // Timer data
         MotorLabelData *data = new MotorLabelData;
         data->label = lbl;
-        data->port = devices[i].port;
+        data->port = robotMotors[i].port;
         data->threshold = TEMP_THRESHOLD;
         data->default_color = lv_color_white();
-        if(!devices[i].is_drive) data->name = devices[i].name; // only set name for non-drive motors
+        if(!robotMotors[i].is_drive) data->name = robotMotors[i].name; // only set name for non-drive motors
         motor_labels.push_back(*data);
     }
 
@@ -507,7 +554,7 @@ void build_editor_page() {
     lv_obj_t *btn_add = lv_btn_create(page_editor);
     lv_obj_set_size(btn_add, 70, 40);
     lv_obj_set_pos(btn_add, 405, 5);
-    //lv_obj_add_event_cb(btn_add, add_command_event, LV_EVENT_CLICKED, NULL);
+    lv_obj_add_event_cb(btn_add, PopupManager::openAddCommand, LV_EVENT_CLICKED, NULL);
     lv_obj_t *lbl_add = lv_label_create(btn_add);
     lv_label_set_text(lbl_add, "Add");
     lv_obj_center(lbl_add);

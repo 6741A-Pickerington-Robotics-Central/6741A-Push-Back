@@ -1,5 +1,15 @@
-#pragma once
-#include "robot/ui/ui_main.hpp"
+#ifndef POPUP_HPP
+#define POPUP_HPP
+#include "robot/ui/commandbar.hpp"
+#include "robot/ui/colors.hpp"
+#include "liblvgl/lvgl.h"   
+extern lv_obj_t* list_inner;
+
+void goto_home(lv_event_t *e);
+void save_auton_event(lv_event_t* e);
+void highlight_selected();
+void update_list_position();
+extern int selected_index;
 
 /**
  * @brief Popup for setting any number.
@@ -339,20 +349,14 @@ public:
 class AddCommandPopup {
 private:
     static inline lv_obj_t* popup = nullptr;
-    struct CmdData {
-        const char* type;
-        lv_obj_t* selected_bar;
-    };
-    static void add_command_event(lv_event_t* e) {
-        CmdData* data = (CmdData*)lv_event_get_user_data(e);
-        if (!data || !data->selected_bar) return;
-        lv_obj_t* container = lv_obj_get_parent(data->selected_bar);
-        // Create new CommandBar
-        CommandBar new_bar = CommandBar::create(container, data->type);
-        // Insert it **after** the selected bar
-        lv_obj_move_to_index(new_bar.bar, lv_obj_get_index(data->selected_bar) + 1);
-        // Optional: refresh highlight / selection
-        //highlight_selected();
+    static void add_move_command_event(lv_event_t* e) {
+        // Create new CommandBar in the correct container
+        CommandBar new_bar = CommandBar::create(list_inner, "move");
+        // Compute correct insertion index (after the selected bar)
+        lv_obj_move_to_index(new_bar.bar, selected_index + 1);
+        // Optionally refresh visuals
+        highlight_selected();
+        update_list_position();
         // Close popup
         if (popup) {
             lv_obj_del(popup);
@@ -382,12 +386,10 @@ public:
             lv_label_set_text(lbl, types[i]);
             lv_obj_center(lbl);
             // Pass both type and selected bar
-            CmdData* data = new CmdData{types[i], selected_bar};
-            lv_obj_add_event_cb(btn, add_command_event, LV_EVENT_CLICKED, data);
+            lv_obj_add_event_cb(btn, add_move_command_event, LV_EVENT_CLICKED, NULL);
         }
     }
 };
-
 
 /**
  * @brief Popup manager for all popups.
@@ -431,5 +433,5 @@ public:
         AddCommandPopup::open(list_inner);
     }
 };
-
+#endif // POPUP_HPP
 

@@ -1,5 +1,20 @@
-#pragma once
-#include "robot/ui/ui_main.hpp"
+#ifndef COMMANDBAR_HPP
+#define COMMANDBAR_HPP
+#include "robot/ui/colors.hpp"
+// General headers
+#include "pros/motors.h"
+#include "pros/rtos.hpp"
+#include <cstdio>
+#include <fstream>
+#include <ios>
+#include <iostream>
+#include <sstream>
+#include <vector>
+#include <string>
+#include "liblvgl/lvgl.h"
+
+// Forward Function Declarations
+extern lv_obj_t* create_number_button(lv_obj_t* parent, const char* text, int id);
 
 /**
  * @brief A command bar representing a single robot action.
@@ -169,3 +184,4 @@ private:
         }
     }
 };
+#endif // COMMANDBAR_HPP
