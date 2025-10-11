@@ -4,16 +4,16 @@
 // Forward declare helper function from your code
 lv_obj_t* create_number_button(lv_obj_t* parent, const char* text, int id);
 
-struct CommandBar {
+class CommandBar {
     public:
     lv_obj_t* bar;        // Root LVGL object for this command
     std::string type;     // "move", "wait", "motor", or "piston"
 
     // === Factory ===
     static CommandBar create(lv_obj_t* parent, const std::string& type) {
-        CommandBar cmd{};
-        cmd.bar = lv_obj_create(parent);
+        CommandBar cmd;
         cmd.type = type;
+        cmd.bar = lv_obj_create(parent);
 
         lv_obj_set_size(cmd.bar, 350, 55);
         lv_obj_set_flex_flow(cmd.bar, LV_FLEX_FLOW_ROW);
@@ -21,37 +21,8 @@ struct CommandBar {
         lv_obj_set_style_pad_all(cmd.bar, 4, 0);
         lv_obj_clear_flag(cmd.bar, LV_OBJ_FLAG_SCROLLABLE);
 
-        if (type == "move") {
-            lv_obj_set_style_bg_color(cmd.bar, lv_palette_main(LV_PALETTE_YELLOW), 0);
-            lv_label_set_text(lv_label_create(cmd.bar), "Move to x,y:");
-            create_number_button(cmd.bar, "0", 0);
-            create_number_button(cmd.bar, "0", 0);
-            lv_label_set_text(lv_label_create(cmd.bar), "dir:");
-            create_number_button(cmd.bar, "0", 2);
-        }
-        else if (type == "wait") {
-            lv_obj_set_style_bg_color(cmd.bar, lv_palette_main(LV_PALETTE_GREEN), 0);
-            lv_label_set_text(lv_label_create(cmd.bar), "Wait");
-            create_number_button(cmd.bar, "0", 0);
-            lv_label_set_text(lv_label_create(cmd.bar), "sec");
-        }
-        else if (type == "motor") {
-            lv_obj_set_style_bg_color(cmd.bar, lv_palette_main(LV_PALETTE_BLUE), 0);
-            lv_label_set_text(lv_label_create(cmd.bar), "Spin");
-            lv_obj_t* motor = lv_dropdown_create(cmd.bar);
-            lv_dropdown_set_options(motor, "Intake Top\nIntake Middle\nIntake Bottom");
-            lv_label_set_text(lv_label_create(cmd.bar), "at");
-            create_number_button(cmd.bar, "0", 1);
-        }
-        else if (type == "piston") {
-            lv_obj_set_style_bg_color(cmd.bar, lv_palette_main(LV_PALETTE_RED), 0);
-            lv_label_set_text(lv_label_create(cmd.bar), "Toggle");
-            lv_obj_t* piston = lv_dropdown_create(cmd.bar);
-            lv_dropdown_set_options(piston, "Descore\nWeedwacker");
-            lv_label_set_text(lv_label_create(cmd.bar), "to");
-            lv_switch_create(cmd.bar);
-        }
-
+        // Use helper to build bar contents
+        cmd.build();
         return cmd;
     }
 

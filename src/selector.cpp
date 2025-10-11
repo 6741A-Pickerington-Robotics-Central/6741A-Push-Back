@@ -437,19 +437,6 @@ void build_diag_page() {
 
 // --- Editor Page ---
 
-/*
-1. I do not like this code, need to change to my own keyboard implementation.
-    Use buttons to make a keypad
-    need keys 0-9 . and backspace
-    Use a label to show the typed text
-
-2. Make the screen actualy look good.
-    Bars for code lines
-    Add move up and down buttons
-    Add selecttion controls
-
-*/
-
 // Track selection
 static int selected_index = 0;
 static int visible_offset = 0;
@@ -518,195 +505,6 @@ void enter_event(lv_event_t* e) {
     active_button = NULL;
 }
 
-void open_number_key_popup(lv_event_t* e) {
-    active_button = lv_event_get_target(e);
-    const char* current = lv_label_get_text(lv_obj_get_child(active_button, 0));
-    strncpy(number_input, current, sizeof(number_input));
-    number_input[sizeof(number_input)-1] = '\0';
-
-    lv_obj_t* parent = lv_scr_act();
-    lv_obj_t* popup = lv_obj_create(parent);
-    lv_obj_set_size(popup, 300, 210);
-    lv_obj_clear_flag(popup, LV_OBJ_FLAG_SCROLLABLE);
-    lv_obj_align(popup, LV_ALIGN_CENTER, -20, 0);
-    lv_obj_set_style_bg_color(popup, purple, 0);
-    lv_obj_set_style_border_width(popup, 0, 0);
-    lv_obj_set_style_border_color(popup, purple, 0);
-
-    // Label to show current input
-    lv_obj_t* display_label = lv_label_create(popup);
-    if (strcmp(number_input, "0") == 0)
-    {
-        number_input[0] = '\0';
-        lv_label_set_text(display_label, "");
-    } else {
-        lv_label_set_text(display_label, number_input);
-    }
-    
-    lv_obj_set_pos(display_label, 10, 0);
-
-    // Manually create buttons 0-9
-    int btn_size = 50;
-    int x0 = 0, y0 = 20;
-    for (int i = 1; i <= 9; i++) {
-        lv_obj_t* btn = lv_btn_create(popup);
-        lv_obj_set_size(btn, btn_size, btn_size);
-        int row = (i-1)/3;
-        int col = (i-1)%3;
-        lv_obj_set_pos(btn, x0 + col*(btn_size+5), y0 + row*(btn_size+5));
-
-        lv_obj_t* lbl = lv_label_create(btn);
-        char buf[2]; buf[0] = '0' + i; buf[1] = '\0';
-        lv_label_set_text(lbl, buf);
-        lv_obj_center(lbl);
-
-        lv_obj_add_event_cb(btn, number_key_event, LV_EVENT_CLICKED, display_label);
-    }
-
-    // Button 0
-    lv_obj_t* btn0 = lv_btn_create(popup);
-    lv_obj_set_size(btn0, btn_size, btn_size);
-    lv_obj_set_pos(btn0, x0 + 3*(btn_size+5), y0 + 0*(btn_size+5));
-    lv_obj_t* lbl0 = lv_label_create(btn0);
-    lv_label_set_text(lbl0, "0");
-    lv_obj_center(lbl0);
-    lv_obj_add_event_cb(btn0, number_key_event, LV_EVENT_CLICKED, display_label);
-
-    // Button .
-    lv_obj_t* btndot = lv_btn_create(popup);
-    lv_obj_set_size(btndot, btn_size, btn_size);
-    lv_obj_set_pos(btndot, x0 + 3*(btn_size+5), y0 + 1*(btn_size+5));
-    lv_obj_t* lbldot = lv_label_create(btndot);
-    lv_label_set_text(lbldot, ".");
-    lv_obj_center(lbldot);
-    lv_obj_add_event_cb(btndot, dot_key_event, LV_EVENT_CLICKED, display_label);
-
-    // Backspace button
-    lv_obj_t* btn_back = lv_btn_create(popup);
-    lv_obj_set_size(btn_back, 50, btn_size);
-    lv_obj_set_pos(btn_back, x0 + 3*(btn_size+5), y0 + 2*(btn_size+5));
-    lv_obj_t* lbl_back = lv_label_create(btn_back);
-    lv_label_set_text(lbl_back, "<-");
-    lv_obj_center(lbl_back);
-    lv_obj_add_event_cb(btn_back, backspace_event, LV_EVENT_CLICKED, display_label);
-
-    // Enter button
-    lv_obj_t* btn_enter = lv_btn_create(popup);
-    lv_obj_set_size(btn_enter, 50, (btn_size+5)*3 - 5);
-    lv_obj_set_pos(btn_enter, x0 + 4*(btn_size+5), y0 + 0*(btn_size+5));
-    lv_obj_t* lbl_enter = lv_label_create(btn_enter);
-    lv_label_set_text(lbl_enter, "Enter");
-    lv_obj_center(lbl_enter);
-    lv_obj_add_event_cb(btn_enter, enter_event, LV_EVENT_CLICKED, NULL);
-}
-
-void open_number_speed_popup(lv_event_t* e) {
-    active_button = lv_event_get_target(e);
-    const char* current = lv_label_get_text(lv_obj_get_child(active_button, 0));
-    strncpy(number_input, current, sizeof(number_input));
-    number_input[sizeof(number_input)-1] = '\0';
-
-    lv_obj_t* parent = lv_scr_act();
-    lv_obj_t* popup = lv_obj_create(parent);
-    lv_obj_set_size(popup, 200, 180);
-    lv_obj_clear_flag(popup, LV_OBJ_FLAG_SCROLLABLE);
-    lv_obj_align(popup, LV_ALIGN_CENTER, -20, 0);
-    lv_obj_set_style_bg_color(popup, purple, 0);
-    lv_obj_set_style_border_width(popup, 0, 0);
-    lv_obj_set_style_border_color(popup, purple, 0);
-
-    // Label to show current input
-    display_label = lv_label_create(popup);
-    lv_label_set_text(display_label, number_input);
-    lv_obj_align(display_label, LV_ALIGN_CENTER, 0, -20);
-
-    lv_obj_t* arc = lv_arc_create(popup);
-    lv_obj_set_size(arc, 120, 120);
-    lv_obj_align(arc, LV_ALIGN_CENTER, 0, -20);
-    lv_arc_set_range(arc, 0, 270);
-    lv_arc_set_value(arc, 0);
-    lv_obj_clear_flag(arc, LV_OBJ_FLAG_CLICK_FOCUSABLE);
-    lv_obj_set_style_bg_opa(arc, LV_OPA_TRANSP, 0);
-
-    // Update label and number_input when arc changes
-    lv_obj_add_event_cb(arc, [](lv_event_t* e) {
-        lv_obj_t* arc = lv_event_get_target(e);
-        int value = lv_arc_get_value(arc);
-        snprintf(number_input, sizeof(number_input), "%d", value);
-        lv_label_set_text(display_label, number_input);
-        lv_label_set_text(display_label, number_input);
-    }, LV_EVENT_VALUE_CHANGED, display_label);
-
-    // Optionally, set initial value from number_input if it's a valid integer
-    int initial_value = atoi(number_input);
-    lv_arc_set_value(arc, initial_value);
-    lv_label_set_text(display_label, number_input);
-
-    // Enter button
-    lv_obj_t* btn_enter = lv_btn_create(popup);
-    lv_obj_set_size(btn_enter, 150, 40);
-    lv_obj_align(btn_enter, LV_ALIGN_CENTER, 0, 60);
-    lv_obj_t* lbl_enter = lv_label_create(btn_enter);
-    lv_label_set_text(lbl_enter, "Enter");
-    lv_obj_center(lbl_enter);
-    lv_obj_add_event_cb(btn_enter, enter_event, LV_EVENT_CLICKED, NULL);
-}
-
-void open_number_dir_popup(lv_event_t* e) {
-    active_button = lv_event_get_target(e);
-    const char* current = lv_label_get_text(lv_obj_get_child(active_button, 0));
-    strncpy(number_input, current, sizeof(number_input));
-    number_input[sizeof(number_input)-1] = '\0';
-
-    lv_obj_t* parent = lv_scr_act();
-    lv_obj_t* popup = lv_obj_create(parent);
-    lv_obj_set_size(popup, 200, 190);
-    lv_obj_clear_flag(popup, LV_OBJ_FLAG_SCROLLABLE);
-    lv_obj_align(popup, LV_ALIGN_CENTER, -20, 0);
-    lv_obj_set_style_bg_color(popup, purple, 0);
-    lv_obj_set_style_border_width(popup, 0, 0);
-    lv_obj_set_style_border_color(popup, purple, 0);
-
-    // Label to show current input
-    display_label = lv_label_create(popup);
-    lv_label_set_text(display_label, number_input);
-    lv_obj_align(display_label, LV_ALIGN_CENTER, 0, -25);
-
-    lv_obj_t* arc = lv_arc_create(popup);
-    lv_obj_set_size(arc, 120, 120);
-    lv_obj_align(arc, LV_ALIGN_CENTER, 0, -25);
-    lv_obj_clear_flag(arc, LV_OBJ_FLAG_CLICK_FOCUSABLE);
-    
-    // Make the arc span 360 degrees and hide the indicator
-    lv_arc_set_range(arc, -180, 180);
-    lv_arc_set_rotation(arc, 90); // Start from top (12 o'clock)
-    lv_arc_set_bg_angles(arc, 0, 360);
-    lv_obj_set_style_arc_opa(arc, LV_OPA_TRANSP, LV_PART_INDICATOR);
-
-    // Update label and number_input when arc changes
-    lv_obj_add_event_cb(arc, [](lv_event_t* e) {
-        lv_obj_t* arc = lv_event_get_target(e);
-        int value = lv_arc_get_value(arc);
-        snprintf(number_input, sizeof(number_input), "%d", value);
-        lv_label_set_text(display_label, number_input);
-        lv_label_set_text(display_label, number_input);
-    }, LV_EVENT_VALUE_CHANGED, display_label);
-
-    // Optionally, set initial value from number_input if it's a valid integer
-    int initial_value = atoi(number_input);
-    lv_arc_set_value(arc, initial_value);
-    lv_label_set_text(display_label, number_input);
-
-    // Enter button
-    lv_obj_t* btn_enter = lv_btn_create(popup);
-    lv_obj_set_size(btn_enter, 150, 40);
-    lv_obj_align(btn_enter, LV_ALIGN_CENTER, 0, 65);
-    lv_obj_t* lbl_enter = lv_label_create(btn_enter);
-    lv_label_set_text(lbl_enter, "Enter");
-    lv_obj_center(lbl_enter);
-    lv_obj_add_event_cb(btn_enter, enter_event, LV_EVENT_CLICKED, NULL);
-}
-
 void open_options_popup(lv_event_t* e) {
     lv_obj_t* parent = lv_scr_act();
     lv_obj_t* popup = lv_obj_create(parent);
@@ -741,63 +539,20 @@ lv_obj_t* create_number_button(lv_obj_t* parent, const char* text, int type) {
     lv_obj_set_size(btn, 50, 30);
     if (type == 0)
     {
-        lv_obj_add_event_cb(btn, open_number_key_popup, LV_EVENT_CLICKED, NULL);
+        lv_obj_add_event_cb(btn, NumberKeyPopup::open, LV_EVENT_CLICKED, NULL);
     } else if (type == 1)
     {
-        lv_obj_add_event_cb(btn, open_number_speed_popup, LV_EVENT_CLICKED, NULL);
+        lv_obj_add_event_cb(btn, NumberSpeedPopup::open, LV_EVENT_CLICKED, NULL);
     } else if (type == 2)
     {
-        lv_obj_add_event_cb(btn, open_number_dir_popup, LV_EVENT_CLICKED, NULL);
+        lv_obj_add_event_cb(btn, NumberDirPopup::open, LV_EVENT_CLICKED, NULL);
     }
-    
     lv_obj_t* lbl = lv_label_create(btn);
     lv_label_set_text(lbl, text);
     lv_obj_center(lbl);
 
     return btn;
 }
-
-/*
-
-// Bars for each command type
-lv_obj_t* create_command_bar(lv_obj_t* parent, const char* type) {
-    lv_obj_t* bar = lv_obj_create(parent);
-    lv_obj_set_size(bar, 350, 55);
-    lv_obj_set_flex_flow(bar, LV_FLEX_FLOW_ROW);
-    lv_obj_set_style_flex_cross_place(bar, LV_FLEX_ALIGN_CENTER, 0); // Center items vertically
-    lv_obj_set_style_pad_all(bar, 4, 0);
-    lv_obj_clear_flag(bar, LV_OBJ_FLAG_SCROLLABLE);
-    if (strcmp(type, "move") == 0) {
-        lv_obj_set_style_bg_color(bar, yellow, 0);
-        lv_label_set_text(lv_label_create(bar), "Move to x,y:");
-        create_number_button(bar, "0",0);
-        create_number_button(bar, "0",0);
-        lv_label_set_text(lv_label_create(bar), "dir:");
-        create_number_button(bar, "0",2);
-    } else if (strcmp(type, "wait") == 0) {
-        lv_obj_set_style_bg_color(bar, green, 0);
-        lv_label_set_text(lv_label_create(bar), "Wait");
-        create_number_button(bar, "0",0);
-        lv_label_set_text(lv_label_create(bar), "sec");
-    } else if (strcmp(type, "motor") == 0) {
-        lv_obj_set_style_bg_color(bar, blue, 0);
-        lv_label_set_text(lv_label_create(bar), "Spin");
-        lv_obj_t* motor = lv_dropdown_create(bar);
-        lv_dropdown_set_options(motor, "Intake Top\nIntake Middle\nIntake Bottom");
-        lv_label_set_text(lv_label_create(bar), "at");
-        create_number_button(bar, "0",1);
-    } else if (strcmp(type, "piston") == 0) {
-        lv_obj_set_style_bg_color(bar, red, 0);
-        lv_label_set_text(lv_label_create(bar), "Toggle");
-        lv_obj_t* piston = lv_dropdown_create(bar);
-        lv_dropdown_set_options(piston, "Descore\nWeedwacker");
-        lv_label_set_text(lv_label_create(bar), "to");
-        lv_obj_t* sw = lv_switch_create(bar);
-    }
-    return bar;
-}
-
-*/
 
 // List to store bars
 void update_list_position() {
@@ -919,12 +674,10 @@ void build_editor_page() {
 void load_auton_event() {
     std::ifstream file("/usd/auton.txt");
     if (!file.is_open()) return;
-
     lv_obj_clean(list_inner);
     std::string line;
     while (std::getline(file, line)) {
         if (line.empty()) continue;
-
         std::string type;
         switch (line[0]) {
             case 'm': type = "move"; break;
@@ -933,7 +686,6 @@ void load_auton_event() {
             case 'p': type = "piston"; break;
             default: continue;
         }
-
         CommandBar cmd = CommandBar::create(list_inner, type);
         cmd.deserialize(line);
     }
@@ -943,7 +695,6 @@ void load_auton_event() {
 void save_auton_event(lv_event_t* e) {
     std::ofstream file("/usd/auton.txt");
     if (!file.is_open()) return;
-
     uint32_t count = lv_obj_get_child_cnt(list_inner);
     for (uint32_t i = 0; i < count; i++) {
         lv_obj_t* bar = lv_obj_get_child(list_inner, i);
@@ -953,206 +704,15 @@ void save_auton_event(lv_event_t* e) {
         else if (lv_color_to32(bg) == lv_color_to32(lv_palette_main(LV_PALETTE_GREEN))) type = "wait";
         else if (lv_color_to32(bg) == lv_color_to32(lv_palette_main(LV_PALETTE_BLUE))) type = "motor";
         else if (lv_color_to32(bg) == lv_color_to32(lv_palette_main(LV_PALETTE_RED))) type = "piston";
-
         CommandBar cmd{bar, type};
         file << cmd.serialize() << "\n";
     }
     file.close();
 }
 
-/*
-
-void save_auton_event(lv_event_t* e) {
-    // Open file on SD card (adjust path if you want to use `/usd/auton.txt`)
-    std::ofstream file("/usd/auton.txt");
-    if (!file.is_open()) {
-        printf("Failed to open file!\n");
-        return;
-    }
-    uint32_t count = lv_obj_get_child_cnt(list_inner);
-    for (uint32_t i = 0; i < count; i++) {
-        lv_obj_t* bar = lv_obj_get_child(list_inner, i);
-        lv_color_t bg = lv_obj_get_style_bg_color(bar, 0);
-        // We'll detect type by color (or you can add a hidden label to store "type")
-        std::string type;
-        char cmd_letter = '?';
-        if (lv_color_to32(bg) == lv_color_to32(lv_palette_main(LV_PALETTE_YELLOW))) {
-            type = "move";
-            cmd_letter = 'm';
-        } else if (lv_color_to32(bg) == lv_color_to32(lv_palette_main(LV_PALETTE_GREEN))) {
-            type = "wait";
-            cmd_letter = 'w';
-        } else if (lv_color_to32(bg) == lv_color_to32(lv_palette_main(LV_PALETTE_BLUE))) {
-            type = "motor";
-            cmd_letter = 's';
-        } else if (lv_color_to32(bg) == lv_color_to32(lv_palette_main(LV_PALETTE_RED))) {
-            type = "piston";
-            cmd_letter = 'p';
-        }
-        std::string line;
-        // === Move Command ===
-        if (type == "move") {
-            // Child structure: [“Move to x,y:”][btnX][btnY][“dir:”][btnDir]
-            lv_obj_t* btnX = lv_obj_get_child(bar, 1);
-            lv_obj_t* btnY = lv_obj_get_child(bar, 2);
-            lv_obj_t* btnDir = lv_obj_get_child(bar, 4);
-            const char* x = lv_label_get_text(lv_obj_get_child(btnX, 0));
-            const char* y = lv_label_get_text(lv_obj_get_child(btnY, 0));
-            const char* dir = lv_label_get_text(lv_obj_get_child(btnDir, 0));
-            line = "m,r," + std::string(x) + "," + std::string(y) + "," + std::string(dir);
-        }
-        // === Wait Command ===
-        else if (type == "wait") {
-            // Structure: [“Wait”][btn][“sec”]
-            lv_obj_t* btn = lv_obj_get_child(bar, 1);
-            const char* sec = lv_label_get_text(lv_obj_get_child(btn, 0));
-            line = "w,r," + std::string(sec);
-        }
-        // === Motor Command ===
-        else if (type == "motor") {
-            // [“Spin”][dropdown][“at”][btn]
-            lv_obj_t* dropdown = lv_obj_get_child(bar, 1);
-            lv_obj_t* btn = lv_obj_get_child(bar, 3);
-            const char* speed = lv_label_get_text(lv_obj_get_child(btn, 0));
-            // Find dropdown selected option
-            char buffer[32];
-            lv_dropdown_get_selected_str(dropdown, buffer, sizeof(buffer));
-            char motor_letter = 'a'; // default
-            if (strcmp(buffer, "Intake Top") == 0) motor_letter = 'a';
-            else if (strcmp(buffer, "Intake Middle") == 0) motor_letter = 'b';
-            else if (strcmp(buffer, "Intake Bottom") == 0) motor_letter = 'c';
-            line = "s," + std::string(1, motor_letter) + "," + std::string(speed);
-        }
-        // === Piston Command ===
-        else if (type == "piston") {
-            // [“Toggle”][dropdown][“to”][switch]
-            lv_obj_t* dropdown = lv_obj_get_child(bar, 1);
-            lv_obj_t* sw = lv_obj_get_child(bar, 3);
-            char buffer[32];
-            lv_dropdown_get_selected_str(dropdown, buffer, sizeof(buffer));
-            char piston_letter = 'd'; // default
-            if (strcmp(buffer, "Descore") == 0) piston_letter = 'd';
-            else if (strcmp(buffer, "Weedwacker") == 0) piston_letter = 'w';
-            int state = lv_obj_has_state(sw, LV_STATE_CHECKED) ? 1 : 0;
-            line = "p," + std::string(1, piston_letter) + "," + std::to_string(state);
-        }
-        file << line << "\n"; // Write to file
-    }
-    file.close();
-    printf("Auton saved!\n");
-}
-
-void load_auton_event() {
-    std::ifstream file("/usd/auton.txt");
-    if (!file.is_open()) {
-        printf("Failed to open file!\n");
-        return;
-    }
-    // Clear existing bars
-    lv_obj_clean(list_inner); // Clear existing bars first
-    lv_obj_clear_flag(list_inner, LV_OBJ_FLAG_HIDDEN);
-    std::string line;
-    while (std::getline(file, line)) {
-        if (line.empty()) {
-            printf("Empty line in auton file, skipping.\n"); 
-            continue;
-        }
-        printf("Read line: %s\n", line.c_str());
-        char cmd = line[0];
-        lv_obj_t* bar = NULL;
-        if (cmd == 'm') {
-            // Move command: m,r,x,y,dir
-            bar = create_command_bar(list_inner, "move");
-            size_t pos1 = line.find(',', 4);
-            size_t pos2 = line.find(',', pos1 + 1);
-            size_t pos3 = line.find(',', pos2 + 1);
-
-            std::string x = line.substr(4, pos1 - 4);
-            std::string y = line.substr(pos1 + 1, pos2 - pos1 - 1);
-            std::string dir = line.substr(pos2 + 1);
-
-            lv_obj_t* btnX = lv_obj_get_child(bar, 1);
-            lv_obj_t* btnY = lv_obj_get_child(bar, 2);
-            lv_obj_t* btnDir = lv_obj_get_child(bar, 4);
-
-            lv_label_set_text(lv_obj_get_child(btnX, 0), x.c_str());
-            lv_label_set_text(lv_obj_get_child(btnY, 0), y.c_str());
-            lv_label_set_text(lv_obj_get_child(btnDir, 0), dir.c_str());
-
-            printf("Created move bar\n");
-        } 
-        else if (cmd == 'w') {
-            // Wait command: w,r,seconds
-            bar = create_command_bar(list_inner, "wait");
-            std::string sec = line.substr(4);
-            lv_obj_t* btn = lv_obj_get_child(bar, 1);
-            lv_label_set_text(lv_obj_get_child(btn, 0), sec.c_str());
-        } 
-        else if (cmd == 's') {
-            // Motor command: s,motor_letter,speed
-            bar = create_command_bar(list_inner, "motor");
-            char motor_letter = line[2];
-            std::string speed = line.substr(4);
-
-            lv_obj_t* dropdown = lv_obj_get_child(bar, 1);
-            lv_obj_t* btn = lv_obj_get_child(bar, 3);
-
-            if (motor_letter == 'a') lv_dropdown_set_selected(dropdown, 0);
-            else if (motor_letter == 'b') lv_dropdown_set_selected(dropdown, 1);
-            else if (motor_letter == 'c') lv_dropdown_set_selected(dropdown, 2);
-
-            lv_label_set_text(lv_obj_get_child(btn, 0), speed.c_str());
-        } 
-        else if (cmd == 'p') {
-            // Piston command: p,piston_letter,state
-            bar = create_command_bar(list_inner, "piston");
-            char piston_letter = line[2];
-            std::string state_str = line.substr(4);
-
-            lv_obj_t* dropdown = lv_obj_get_child(bar, 1);
-            lv_obj_t* sw = lv_obj_get_child(bar, 3);
-
-            if (piston_letter == 'd') lv_dropdown_set_selected(dropdown, 0);
-            else if (piston_letter == 'w') lv_dropdown_set_selected(dropdown, 1);
-
-            if (state_str == "1") lv_obj_add_state(sw, LV_STATE_CHECKED);
-            else lv_obj_clear_state(sw, LV_STATE_CHECKED);
-        }
-        else {
-            printf("Unknown command type: %c\n", cmd);
-            continue; // skip unknown commands
-        }
-        lv_obj_update_layout(list_inner); // Update layout after adding
-        printf("Bar %p: x=%d y=%d w=%d h=%d hidden=%d children=%d\n", bar,
-       (int)lv_obj_get_x(bar),
-       (int)lv_obj_get_y(bar),
-       (int)lv_obj_get_width(bar),
-       (int)lv_obj_get_height(bar),
-       lv_obj_has_flag(bar, LV_OBJ_FLAG_HIDDEN),
-       (int)lv_obj_get_child_cnt(bar));
-    }
-    file.close();
-    // After loading, make sure to refresh selection / list
-    selected_index = 0;
-    visible_offset = 0;
-    update_list_position();
-    highlight_selected();
-    lv_obj_update_layout(list_inner); // Update layout after adding
-    printf("Parent: %p, hidden=%d, opa=%d, w=%d, h=%d\n",
-       list_inner,
-       lv_obj_has_flag(list_inner, LV_OBJ_FLAG_HIDDEN),
-       lv_obj_get_style_bg_opa(list_inner, 0),
-       lv_obj_get_width(list_inner),
-       lv_obj_get_height(list_inner));
-
-}
-
-*/
-
 void Setup_lvgl_selector() {
     build_home_page();
     build_editor_page();
     build_diag_page();
-    // Start on auton page
-    show_page(page_home);
+    show_page(page_home); // Start on auton page
 }
