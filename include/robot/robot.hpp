@@ -9,7 +9,7 @@
 
 void Setup_lvgl_selector();
 
-extern std::vector<Device> robotMotors;
+//extern std::vector<Device> robotMotors;
 extern lemlib::Chassis chassis;
 extern pros::Controller controller;
 extern pros::Motor Intake1;

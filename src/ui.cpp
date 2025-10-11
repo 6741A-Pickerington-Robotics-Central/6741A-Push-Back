@@ -548,8 +548,6 @@ void build_editor_page() {
     lv_obj_set_style_pad_row(list_inner, 4, 0); // spacing between bars
     lv_obj_clear_flag(list_inner, LV_OBJ_FLAG_SCROLLABLE);
 
-    highlight_selected();
-
     // Add button
     lv_obj_t *btn_add = lv_btn_create(page_editor);
     lv_obj_set_size(btn_add, 70, 40);

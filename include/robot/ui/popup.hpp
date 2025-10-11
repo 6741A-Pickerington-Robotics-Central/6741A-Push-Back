@@ -349,9 +349,9 @@ public:
 class AddCommandPopup {
 private:
     static inline lv_obj_t* popup = nullptr;
-    static void add_move_command_event(lv_event_t* e) {
+    static void add_command_event(const std::string& type) {
         // Create new CommandBar in the correct container
-        CommandBar new_bar = CommandBar::create(list_inner, "move");
+        CommandBar new_bar = CommandBar::create(list_inner, type);
         // Compute correct insertion index (after the selected bar)
         lv_obj_move_to_index(new_bar.bar, selected_index + 1);
         // Optionally refresh visuals
@@ -362,6 +362,24 @@ private:
             lv_obj_del(popup);
             popup = nullptr;
         }
+    }
+    static void close_event(lv_event_t* e) {
+        if (popup) {
+            lv_obj_del(popup);
+            popup = nullptr;
+        }
+    }
+    static void add_move_cb(lv_event_t* e) {
+        add_command_event("move");
+    }
+    static void add_wait_cb(lv_event_t* e) {
+        add_command_event("wait");
+    }
+    static void add_motor_cb(lv_event_t* e) {
+        add_command_event("motor");
+    }
+    static void add_piston_cb(lv_event_t* e) {
+        add_command_event("piston");
     }
 
 public:
@@ -375,19 +393,23 @@ public:
         lv_obj_set_style_border_width(popup, 0, 0);
         lv_obj_set_style_border_color(popup, purple, 0);
 
-        const char* types[4] = {"move", "wait", "motor", "piston"};
+        lv_obj_t* btn_move = lv_btn_create(popup);
+        lv_obj_set_size(btn_move, 140, 35);
+        lv_obj_align(btn_move, LV_ALIGN_TOP_MID, 0, 0);
+        lv_obj_add_event_cb(btn_move, add_move_cb, LV_EVENT_CLICKED, NULL);
+        lv_obj_t* lbl_move = lv_label_create(btn_move);
+        lv_label_set_text(lbl_move, "Move");
+        lv_obj_center(lbl_move);
 
-        for (int i = 0; i < 4; i++) {
-            lv_obj_t* btn = lv_btn_create(popup);
-            lv_obj_set_size(btn, 140, 35);
-            lv_obj_align(btn, LV_ALIGN_TOP_MID, 0, i * 45 + 10);
-
-            lv_obj_t* lbl = lv_label_create(btn);
-            lv_label_set_text(lbl, types[i]);
-            lv_obj_center(lbl);
-            // Pass both type and selected bar
-            lv_obj_add_event_cb(btn, add_move_command_event, LV_EVENT_CLICKED, NULL);
-        }
+        lv_obj_t* btn_motor = lv_btn_create(popup);
+        lv_obj_set_size(btn_motor, 140, 35);
+        lv_obj_align(btn_motor, LV_ALIGN_TOP_MID, 0, 45);
+        lv_obj_add_event_cb(btn_motor, add_motor_cb, LV_EVENT_CLICKED, NULL);
+        lv_obj_t* lbl_motor = lv_label_create(btn_motor);
+        lv_label_set_text(lbl_motor, "Motor");
+        lv_obj_center(lbl_motor);
+        
+        
     }
 };
 
