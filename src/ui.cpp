@@ -6,15 +6,18 @@
 #include "pros/rtos.hpp"
 #include <cstdio>
 #include <fstream>
+#include <filesystem>
 #include <ios>
 #include <iostream>
 #include <sstream>
 #include <vector>
 #include <string>
 #include "liblvgl/lvgl.h"
+#include <sys/stat.h>
+#include <sys/types.h>
 
-void load_auton_event();
-
+void load_auton_event(std::string filename);
+// Global vars
 std::string selected_auton = "";
 const int TEMP_THRESHOLD = 50;
 lv_obj_t *btn_diag;
@@ -26,7 +29,8 @@ lv_obj_t* list_inner = nullptr;
 char number_input[16] = "";
 lv_obj_t* active_button = nullptr;
 lv_obj_t* display_label = nullptr;
-
+int selected_corner = -1;  // 0=Red Left, 1=Red Right, 2=Blue Left, 3=Blue Right
+int selected_slot   = -1;  // 0,1,2
 
 // Simple device list (you can expand this)
 struct Device {
@@ -209,35 +213,129 @@ void show_page(lv_obj_t *page) {
     lv_obj_clear_flag(page, LV_OBJ_FLAG_HIDDEN);
 }
 
+std::string get_auton_file_path() {
+    if(selected_corner < 0 || selected_corner > 3 || selected_slot < 0 || selected_slot > 2)
+        return ""; // invalid selection
+
+    const char* corner_names[] = { "red_left", "red_right", "blue_left", "blue_right" };
+    char buf[128];
+    snprintf(buf, sizeof(buf), "autons/%s/slot%d.txt",
+             corner_names[selected_corner],
+             selected_slot + 1);
+    return std::string(buf);
+}
+
 // --- Event callbacks for switch pages ---
 void goto_home(lv_event_t *e) { show_page(page_home); }
 void goto_editor(lv_event_t *e) { 
+    if (selected_corner == -1 || selected_slot == -1) return; // nothing selected
     show_page(page_editor); 
-    load_auton_event(); 
+    load_auton_event(get_auton_file_path()); 
     int selected_index = 0;
     int visible_offset = 0;
     highlight_selected();
 }
 void goto_diag(lv_event_t *e) { show_page(page_diag); }
 
-void auton_btn_cb(lv_event_t * e) {
-    lv_obj_t *btn = lv_event_get_target(e);
-    lv_obj_t *label = lv_obj_get_child(btn, 0);
 
-    const char* lvgl_text = lv_label_get_text(label);
-    selected_auton = lvgl_text;   // copies safely into std::string
+///////////////////////
+// --- Home Page --- //
+///////////////////////
 
-    printf("Selected auton: %s\n", selected_auton.c_str());
 
-    // Update top bar label
-    lv_obj_t *top_label = (lv_obj_t *)lv_event_get_user_data(e);
-    char buf[64];
-    snprintf(buf, sizeof(buf), "Selected: %s", selected_auton.c_str());
-    lv_label_set_text(top_label, buf);
-    lv_obj_update_layout(top_label);
+lv_obj_t* auton_list; // global
+lv_obj_t* auton_label; // global
+lv_obj_t* main_area; // global
+void corner_btn_cb(lv_event_t* e);
+
+// Buttons for corners (to identify in callback)
+lv_obj_t* red_left_btn;
+lv_obj_t* red_right_btn;
+lv_obj_t* blue_left_btn;
+lv_obj_t* blue_right_btn;
+
+// Slot button callback
+void slot_btn_cb(lv_event_t* e) {
+    lv_obj_t* btn = lv_event_get_target(e);
+    // Determine slot number
+    const char* txt = lv_label_get_text(lv_obj_get_child(btn,0));
+    sscanf(txt, "Slot %d", &selected_slot);
+    selected_slot -= 1;
+    // Corner names and colors
+    const char* corner_names[] = { "Red Left", "Red Right", "Blue Left", "Blue Right" };
+    const char* corner_colors[] = { "#FF0000", "#FF0000", "#0000FF", "#0000FF" };
+    lv_label_set_recolor(auton_label, true);   
+    char buf[128];
+    if(selected_corner >= 0 && selected_corner < 4 && selected_slot >= 0) {
+        // LVGL recolor uses #RRGGBBtext# syntax
+        sprintf(buf, "Selected: %s %s# Slot %d",
+                corner_colors[selected_corner],
+                corner_names[selected_corner],
+                selected_slot + 1);
+    } else {
+        sprintf(buf, "Selected: None");
+    }
+    lv_label_set_text(auton_label, buf);
 }
 
-// --- Home Page ---
+void build_corner_list() {
+    auton_list = lv_list_create(main_area);
+    lv_obj_set_size(auton_list, 220, LV_PCT(100));  // ~half width
+    // Add corner buttons
+    red_left_btn = lv_list_add_btn(auton_list, NULL, "Red Left");
+    red_right_btn = lv_list_add_btn(auton_list, NULL, "Red Right");
+    blue_left_btn = lv_list_add_btn(auton_list, NULL, "Blue Left");
+    blue_right_btn = lv_list_add_btn(auton_list, NULL, "Blue Right");
+    // Color the buttons
+    lv_obj_set_style_text_color(lv_obj_get_child(red_left_btn, 0), lv_color_hsv_to_rgb(10,255,255), 0);
+    lv_obj_set_style_text_color(lv_obj_get_child(red_right_btn, 0), lv_color_hsv_to_rgb(10,255,255), 0); 
+    lv_obj_set_style_text_color(lv_obj_get_child(blue_left_btn, 0), lv_color_hsv_to_rgb(200,255,255), 0);
+    lv_obj_set_style_text_color(lv_obj_get_child(blue_right_btn, 0), lv_color_hsv_to_rgb(200,255,255), 0);
+    // Add event callbacks
+    lv_obj_add_event_cb(red_left_btn, corner_btn_cb, LV_EVENT_CLICKED, auton_label);
+    lv_obj_add_event_cb(red_right_btn, corner_btn_cb, LV_EVENT_CLICKED, auton_label);
+    lv_obj_add_event_cb(blue_left_btn, corner_btn_cb, LV_EVENT_CLICKED, auton_label);
+    lv_obj_add_event_cb(blue_right_btn, corner_btn_cb, LV_EVENT_CLICKED, auton_label);
+}
+
+void back_to_corners_cb(lv_event_t* e) {
+    lv_obj_del(auton_list);
+    auton_list = NULL;
+    build_corner_list();  // recreate the 4 corner buttons in left half
+    lv_label_set_text(auton_label, "Selected: None");
+}
+
+void corner_btn_cb(lv_event_t* e) { // Corner button callback
+    lv_obj_t* btn = lv_event_get_target(e);
+    // figure out corner index (could store in user_data or use pointer comparison)
+    if (btn == red_left_btn) selected_corner = 0;
+    else if (btn == red_right_btn) selected_corner = 1;
+    else if (btn == blue_left_btn) selected_corner = 2;
+    else if (btn == blue_right_btn) selected_corner = 3;
+    // Update top label
+    lv_label_set_text(auton_label, "Selected: None");
+    // Remove previous slot list if exists
+    // Remove the corner buttons list
+    if (auton_list) {
+        lv_obj_del(auton_list);
+        auton_list = NULL;
+    }
+    // Create slot buttons
+    auton_list = lv_list_create(main_area); // parent = main_area
+    lv_obj_set_size(auton_list, 220, LV_PCT(100));
+
+    for (int i = 0; i < 3; i++) {
+        char buf[16];
+        sprintf(buf, "Slot %d", i + 1);
+        lv_obj_t* s_btn = lv_list_add_btn(auton_list, NULL, buf);
+        lv_obj_add_event_cb(s_btn, slot_btn_cb, LV_EVENT_CLICKED, auton_label);
+        lv_obj_set_style_text_color(lv_obj_get_child(s_btn,0),
+                                    lv_color_hsv_to_rgb(100,255,255), 0);
+    }
+    lv_obj_t* back_btn = lv_list_add_btn(auton_list, NULL, "< Back");
+    lv_obj_add_event_cb(back_btn, back_to_corners_cb, LV_EVENT_CLICKED, NULL);
+}
+
 void build_home_page() {
     page_home = lv_obj_create(lv_scr_act());
     lv_obj_set_size(page_home, 480, 240);
@@ -250,16 +348,18 @@ void build_home_page() {
     lv_obj_t *top_bar = lv_obj_create(page_home);
     lv_obj_set_size(top_bar, 480, 40);  // full width, 40px tall
     lv_obj_set_style_bg_color(top_bar, lv_color_white(), 0);
+    
     lv_obj_set_pos(top_bar, 0, 0);
     lv_obj_clear_flag(top_bar, LV_OBJ_FLAG_SCROLLABLE);
 
-    lv_obj_t *auton_label = lv_label_create(top_bar);
+    auton_label = lv_label_create(top_bar);
     lv_label_set_text(auton_label, "Selected: None");
     lv_obj_set_style_text_color(auton_label, lv_color_black(), 0);
+    lv_label_set_recolor(auton_label, true); // enable [color] tags
     lv_obj_center(auton_label);
 
     // Main area below top bar
-    lv_obj_t *main_area = lv_obj_create(page_home);
+    main_area = lv_obj_create(page_home);
     lv_obj_set_size(main_area, 480, 200);  // fills space under top bar
     lv_obj_set_pos(main_area, 0, 40);
     lv_obj_set_flex_flow(main_area, LV_FLEX_FLOW_ROW);  // horizontal split
@@ -267,25 +367,7 @@ void build_home_page() {
     lv_obj_set_style_bg_color(main_area, lv_color_hsv_to_rgb(280,255,255), 0);
     lv_obj_set_style_text_opa(main_area, LV_OPA_COVER, 0);
 
-    // Left half with auton list
-    lv_obj_t *auton_list = lv_list_create(main_area);
-    lv_obj_set_size(auton_list, 220, LV_PCT(100));  // ~half width
-    lv_obj_t *red_left_btn = lv_list_add_btn(auton_list, NULL, "Red Left");
-    lv_obj_t *red_right_btn = lv_list_add_btn(auton_list, NULL, "Red Right");
-    lv_obj_t *blue_left_btn = lv_list_add_btn(auton_list, NULL, "Blue Left");
-    lv_obj_t *blue_right_btn = lv_list_add_btn(auton_list, NULL, "Blue Right");
-
-    lv_obj_set_style_text_color(lv_obj_get_child(red_left_btn, 0), lv_color_hsv_to_rgb(10,255,255), 0);
-    lv_obj_set_style_text_color(lv_obj_get_child(red_right_btn, 0), lv_color_hsv_to_rgb(10,255,255), 0); 
-    lv_obj_set_style_text_color(lv_obj_get_child(blue_left_btn, 0), lv_color_hsv_to_rgb(200,255,255), 0);
-    lv_obj_set_style_text_color(lv_obj_get_child(blue_right_btn, 0), lv_color_hsv_to_rgb(200,255,255), 0);
-
-    lv_obj_add_event_cb(red_left_btn, auton_btn_cb, LV_EVENT_CLICKED, auton_label);
-    lv_obj_add_event_cb(red_right_btn, auton_btn_cb, LV_EVENT_CLICKED, auton_label);
-    lv_obj_add_event_cb(blue_left_btn, auton_btn_cb, LV_EVENT_CLICKED, auton_label);
-    lv_obj_add_event_cb(blue_right_btn, auton_btn_cb, LV_EVENT_CLICKED, auton_label);
-
-    // Right half with buttons
+    // Left half with buttons
     lv_obj_t *button_col = lv_obj_create(main_area);
     lv_obj_set_size(button_col, 220, LV_PCT(100));
     lv_obj_clear_flag(button_col, LV_OBJ_FLAG_SCROLLABLE);
@@ -319,9 +401,17 @@ void build_home_page() {
     lv_label_set_text(lbl_run, "Run");
     lv_obj_set_pos(btn_run, 0, 120);
     lv_obj_set_size(btn_run, LV_PCT(100), 30);
+    
+    // Right half with auton list
+    build_corner_list(); // populate with corner buttons
 }
 
-// --- Diagnostics Page ---
+
+//////////////////////////////
+// --- Diagnostics Page --- //
+//////////////////////////////
+
+
 struct MotorLabelData {
     lv_obj_t *label;
     int port;
@@ -457,13 +547,17 @@ void build_diag_page() {
     lv_obj_center(lbl_back);
 }
 
-// --- Editor Page ---
 
-int first_visible_index = 0;     // Start index of current visible range
-const int window_size   = 3;  // number of bars fully visible
-const int buffer_above  = 1;  // one bar off-screen above
-const int buffer_below  = 2;  // two bars off-screen below
-const int bar_height    = 55; // adjust if you change bar height
+/////////////////////////
+// --- Editor Page --- //
+/////////////////////////
+
+
+int first_visible_index = 0; // Start index of current visible range
+const int window_size = 3; // number of bars fully visible
+const int buffer_above = 1; // one bar off-screen above
+const int buffer_below = 2; // two bars off-screen below
+const int bar_height = 55; // adjust if you change bar height
 std::vector<CommandBar> visible_bars;
 std::vector<CommandData> command_list;
 
@@ -657,8 +751,9 @@ void delete_selected_command(lv_event_t* e) { // Deletes the currently selected 
     ensure_selected_visible();
 }
 
-void load_auton_event() {
-    std::ifstream file("/usd/auton.txt");
+void load_auton_event(std::string filename) {
+    std::string filepath = filename;
+    std::ifstream file(filepath);
     if (!file.is_open()) return;
     command_list.clear();
 
@@ -684,14 +779,21 @@ void load_auton_event() {
 }
 
 void save_auton_event(lv_event_t* e) {
-    std::ofstream file("/usd/auton.txt");
-    if (!file.is_open()) return;
-
+    std::string filepath = get_auton_file_path();
+    if(filepath.empty()) {
+        printf("Error: invalid selection\n");
+        return;
+    }
+    std::ofstream file(filepath);
+    if(!file.is_open()) {
+        printf("Error: could not open file %s\n", filepath.c_str());
+        return;
+    }
     for (const auto& cmd : command_list) {
         file << cmd.line << "\n";
     }
-
     file.close();
+    printf("Auton saved to %s\n", filepath.c_str());
 }
 
 // Page builder
@@ -757,7 +859,11 @@ void build_editor_page() {
 }
 
 
-// --- Initialization ---
+////////////////////////////
+// --- Initialization --- //
+////////////////////////////
+
+
 void Setup_lvgl_selector() {
     build_home_page();
     build_editor_page();
