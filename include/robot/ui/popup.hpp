@@ -8,8 +8,10 @@ extern lv_obj_t* list_inner;
 void goto_home(lv_event_t *e);
 void save_auton_event(lv_event_t* e);
 void highlight_selected();
-void update_list_position();
+void render_visible_range();
+void ensure_selected_visible();
 extern int selected_index;
+extern std::vector<CommandData> command_list;
 
 /**
  * @brief Popup for setting any number.
@@ -53,6 +55,15 @@ private:
             lv_obj_t* display_label = (lv_obj_t*)lv_event_get_user_data(e);
             const char* value = lv_label_get_text(display_label);
             lv_label_set_text(lv_obj_get_child(active_button, 0), value);
+            // Persist change to command_list
+            lv_obj_t* bar = lv_obj_get_parent(active_button);
+            if (bar) {
+                intptr_t idx = (intptr_t)lv_obj_get_user_data(bar);
+                if (idx >= 0 && idx < (intptr_t)command_list.size()) {
+                    // regenerate the serialized line from the live bar and store
+                    command_list[(size_t)idx].line = serialize_bar(bar);
+                }
+            }
         }
         lv_obj_t* btn_enter = lv_event_get_current_target(e);
         lv_obj_t* popup = lv_obj_get_parent(btn_enter);
@@ -151,16 +162,25 @@ private:
     static inline lv_obj_t* display_label = nullptr;
     // Enter button event
     static void enter_event(lv_event_t* e) {
-        if (active_button) {
-            lv_obj_t* label = (lv_obj_t*)lv_event_get_user_data(e);
-            const char* value = lv_label_get_text(label);
-            lv_label_set_text(lv_obj_get_child(active_button, 0), value);
+    if (active_button) {
+        lv_obj_t* label = (lv_obj_t*)lv_event_get_user_data(e);
+        const char* value = lv_label_get_text(label);
+        lv_label_set_text(lv_obj_get_child(active_button, 0), value);
+        // persist
+        lv_obj_t* bar = lv_obj_get_parent(active_button);
+        if (bar) {
+            intptr_t idx = (intptr_t)lv_obj_get_user_data(bar);
+            if (idx >= 0 && idx < (intptr_t)command_list.size()) {
+                command_list[(size_t)idx].line = serialize_bar(bar);
+            }
         }
-        lv_obj_t* btn_enter = lv_event_get_target(e);
-        lv_obj_t* popup = lv_obj_get_parent(btn_enter);
-        lv_obj_del(popup);
-        active_button = nullptr;
     }
+    lv_obj_t* btn_enter = lv_event_get_target(e);
+    lv_obj_t* popup = lv_obj_get_parent(btn_enter);
+    lv_obj_del(popup);
+    active_button = nullptr;
+}
+
 public:
     static void open(lv_event_t* e) {
         active_button = lv_event_get_target(e);
@@ -220,17 +240,25 @@ private:
     static inline lv_obj_t* display_label = nullptr;
     // Enter button event
     static void enter_event(lv_event_t* e) {
-        if (active_button) {
-            lv_obj_t* label = (lv_obj_t*)lv_event_get_user_data(e);
-            const char* value = lv_label_get_text(label);
-            lv_label_set_text(lv_obj_get_child(active_button, 0), value);
+    if (active_button) {
+        lv_obj_t* label = (lv_obj_t*)lv_event_get_user_data(e);
+        const char* value = lv_label_get_text(label);
+        lv_label_set_text(lv_obj_get_child(active_button, 0), value);
+        // persist
+        lv_obj_t* bar = lv_obj_get_parent(active_button);
+        if (bar) {
+            intptr_t idx = (intptr_t)lv_obj_get_user_data(bar);
+            if (idx >= 0 && idx < (intptr_t)command_list.size()) {
+                command_list[(size_t)idx].line = serialize_bar(bar);
+            }
         }
-        lv_obj_t* btn_enter = lv_event_get_target(e);
-        lv_obj_t* popup = lv_obj_get_parent(btn_enter);
-        lv_obj_del(popup);
-
-        active_button = nullptr;
     }
+    lv_obj_t* btn_enter = lv_event_get_target(e);
+    lv_obj_t* popup = lv_obj_get_parent(btn_enter);
+    lv_obj_del(popup);
+    active_button = nullptr;
+}
+
 public:
     static void open(lv_event_t* e) {
         active_button = lv_event_get_target(e);
@@ -349,41 +377,60 @@ public:
 class AddCommandPopup {
 private:
     static inline lv_obj_t* popup = nullptr;
-    static void add_command_event(const std::string& type) {
-        // Create new CommandBar in the correct container
-        CommandBar new_bar = CommandBar::create(list_inner, type);
-        // Compute correct insertion index (after the selected bar)
-        lv_obj_move_to_index(new_bar.bar, selected_index + 1);
-        // Optionally refresh visuals
-        highlight_selected();
-        update_list_position();
-        // Close popup
-        if (popup) {
-            lv_obj_del(popup);
-            popup = nullptr;
-        }
+
+    struct AsyncAddPayload {
+        const char* type;
+        int selected_index_snapshot;
+    };
+
+    // Called asynchronously by LVGL
+    static void async_add_callback(void* p) {
+    AsyncAddPayload* payload = static_cast<AsyncAddPayload*>(p);
+    if (!payload) return;
+    CommandData cmd;
+    cmd.type = payload->type;
+    // Fill default serialized line with zeros so it doesn’t get discarded
+    if (cmd.type == "move") cmd.line = "m,r,0,0,0";
+    else if (cmd.type == "wait") cmd.line = "w,r,0";
+    else if (cmd.type == "motor") cmd.line = "s,a,0";
+    else if (cmd.type == "piston") cmd.line = "p,d,0";
+    else cmd.line = ""; // fallback, shouldn't happen
+    // Determine insert index
+    int insert_index = payload->selected_index_snapshot + 1;
+    if (insert_index < 0) insert_index = 0;
+    if (insert_index > (int)command_list.size()) insert_index = command_list.size();
+    // Insert into model
+    command_list.insert(command_list.begin() + insert_index, cmd);
+    selected_index = insert_index;
+    // Refresh visible bars
+    ensure_selected_visible();
+    // Delete popup
+    if (popup && lv_obj_is_valid(popup)) {
+        lv_obj_del(popup);
+        popup = nullptr;
     }
-    static void close_event(lv_event_t* e) {
-        if (popup) {
-            lv_obj_del(popup);
-            popup = nullptr;
-        }
-    }
-    static void add_move_cb(lv_event_t* e) {
-        add_command_event("move");
-    }
-    static void add_wait_cb(lv_event_t* e) {
-        add_command_event("wait");
-    }
-    static void add_motor_cb(lv_event_t* e) {
-        add_command_event("motor");
-    }
-    static void add_piston_cb(lv_event_t* e) {
-        add_command_event("piston");
+    delete payload;
+}
+
+    static void add_command_event(lv_event_t* e) {
+        const char* type = static_cast<const char*>(lv_event_get_user_data(e));
+        if (!type) return;
+
+        AsyncAddPayload* payload = new AsyncAddPayload;
+        payload->type = type;
+        payload->selected_index_snapshot = selected_index;
+
+        // Schedule the add asynchronously
+        lv_async_call(async_add_callback, payload);
     }
 
 public:
-    static void open(lv_obj_t* selected_bar) {
+    static void open() {
+        // Delete any existing popup
+        if (popup && lv_obj_is_valid(popup)) {
+            lv_obj_del(popup);
+            popup = nullptr;
+        }
         lv_obj_t* parent = lv_scr_act();
         popup = lv_obj_create(parent);
         lv_obj_set_size(popup, 160, 190);
@@ -391,27 +438,23 @@ public:
         lv_obj_align(popup, LV_ALIGN_CENTER, 80, 0);
         lv_obj_set_style_bg_color(popup, purple, 0);
         lv_obj_set_style_border_width(popup, 0, 0);
-        lv_obj_set_style_border_color(popup, purple, 0);
 
-        lv_obj_t* btn_move = lv_btn_create(popup);
-        lv_obj_set_size(btn_move, 140, 35);
-        lv_obj_align(btn_move, LV_ALIGN_TOP_MID, 0, 0);
-        lv_obj_add_event_cb(btn_move, add_move_cb, LV_EVENT_CLICKED, NULL);
-        lv_obj_t* lbl_move = lv_label_create(btn_move);
-        lv_label_set_text(lbl_move, "Move");
-        lv_obj_center(lbl_move);
-
-        lv_obj_t* btn_motor = lv_btn_create(popup);
-        lv_obj_set_size(btn_motor, 140, 35);
-        lv_obj_align(btn_motor, LV_ALIGN_TOP_MID, 0, 45);
-        lv_obj_add_event_cb(btn_motor, add_motor_cb, LV_EVENT_CLICKED, NULL);
-        lv_obj_t* lbl_motor = lv_label_create(btn_motor);
-        lv_label_set_text(lbl_motor, "Motor");
-        lv_obj_center(lbl_motor);
-        
-        
+        auto make_button = [&](const char* label, const char* type, int y) {
+            lv_obj_t* btn = lv_btn_create(popup);
+            lv_obj_set_size(btn, 140, 35);
+            lv_obj_align(btn, LV_ALIGN_TOP_MID, 0, y);
+            lv_obj_add_event_cb(btn, add_command_event, LV_EVENT_CLICKED, (void*)type);
+            lv_obj_t* lbl = lv_label_create(btn);
+            lv_label_set_text(lbl, label);
+            lv_obj_center(lbl);
+        };
+        make_button("Move",  "move",  0);
+        make_button("Motor", "motor", 45);
+        make_button("Wait",  "wait",  90);
+        make_button("Piston",  "piston",  135);
     }
 };
+
 
 /**
  * @brief Popup manager for all popups.
@@ -430,29 +473,25 @@ public:
  */
 class PopupManager {
 public:
-    // Open number key popup
+    // Called by create_number_button as event cb; user_data is the source button
     static void openNumberKey(lv_event_t* e) {
         NumberKeyPopup::open(e);
     }
-
     // Open speed popup
     static void openSpeed(lv_event_t* e) {
         NumberSpeedPopup::open(e);
     }
-
     // Open direction popup
     static void openDir(lv_event_t* e) {
         NumberDirPopup::open(e);
     }
-
     // Open options popup
     static void openOptions(lv_event_t* e) {
         OptionsPopup::open(e);
     }
-
     // Open add command popup
     static void openAddCommand(lv_event_t* e) {
-        AddCommandPopup::open(list_inner);
+        AddCommandPopup::open();
     }
 };
 #endif // POPUP_HPP

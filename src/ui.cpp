@@ -459,18 +459,46 @@ void build_diag_page() {
 
 // --- Editor Page ---
 
+int first_visible_index = 0;     // Start index of current visible range
+const int window_size   = 3;  // number of bars fully visible
+const int buffer_above  = 1;  // one bar off-screen above
+const int buffer_below  = 2;  // two bars off-screen below
+const int bar_height    = 55; // adjust if you change bar height
+std::vector<CommandBar> visible_bars;
+std::vector<CommandData> command_list;
+
+static bool holding_up = false;
+static bool holding_down = false;
+static uint32_t press_start_time_up = 0;
+static uint32_t press_start_time_down = 0;
+static uint32_t last_repeat_time = 0;
+
+constexpr uint32_t HOLD_THRESHOLD = 300; // ms to become a hold
+constexpr uint32_t REPEAT_INTERVAL = 200; // ms between repeats
+
+void ensure_selected_visible() {
+    int first_visible = first_visible_index;
+    int last_visible  = first_visible + window_size - 1; // use window_size
+    if (selected_index < first_visible) {
+        first_visible_index = selected_index;
+    } else if (selected_index > last_visible) {
+        first_visible_index = selected_index - window_size + 1;
+    }
+    render_visible_range(); // redraw visible bars
+}
+
 lv_obj_t* create_number_button(lv_obj_t* parent, const char* text, int type) {
     lv_obj_t* btn = lv_btn_create(parent);
     lv_obj_set_size(btn, 50, 30);
     if (type == 0)
     {
-        lv_obj_add_event_cb(btn, PopupManager::openNumberKey, LV_EVENT_CLICKED, NULL);
+        lv_obj_add_event_cb(btn, PopupManager::openNumberKey, LV_EVENT_CLICKED, btn);
     } else if (type == 1)
     {
-        lv_obj_add_event_cb(btn, PopupManager::openSpeed, LV_EVENT_CLICKED, NULL);
+        lv_obj_add_event_cb(btn, PopupManager::openSpeed, LV_EVENT_CLICKED, btn);
     } else if (type == 2)
     {
-        lv_obj_add_event_cb(btn, PopupManager::openDir, LV_EVENT_CLICKED, NULL);
+        lv_obj_add_event_cb(btn, PopupManager::openDir, LV_EVENT_CLICKED, btn);
     }
     lv_obj_t* lbl = lv_label_create(btn);
     lv_label_set_text(lbl, text);
@@ -479,49 +507,192 @@ lv_obj_t* create_number_button(lv_obj_t* parent, const char* text, int type) {
     return btn;
 }
 
-// List to store bars
-void update_list_position() {
-    lv_obj_set_y(list_inner, -visible_offset * 55); // Move the inner container to simulate scrolling
-    printf("Visible offset: %d\n", visible_offset);
-    printf ("Inner list has %d children\n", (int)lv_obj_get_child_cnt(list_inner));
+void render_visible_range() {
+    lv_obj_clean(list_inner);
+    visible_bars.clear();
+    // Determine start and end of the render range
+    int start = std::max(first_visible_index - buffer_above, 0);
+    int end = std::min(first_visible_index + window_size + buffer_below,(int)command_list.size());
+
+    for (int i = start; i < end; ++i) {
+        CommandBar cmd = CommandBar::create(list_inner, command_list[i].type);
+        cmd.deserialize(command_list[i].line);
+        // Attach the global index 'i' to the bar so popups can find the model entry.
+        // Note: cast through intptr_t to avoid warnings.
+        lv_obj_set_user_data(cmd.bar, (void*)(intptr_t)i);
+        visible_bars.push_back(cmd);
+    }
+    // Shift the whole container upward so top buffer bar starts off-screen
+    if (first_visible_index > 0) {
+        lv_obj_set_y(list_inner, -bar_height * buffer_above);
+    } else {
+        lv_obj_set_y(list_inner, 0);
+    }
+    highlight_selected();
+}
+
+void animate_scroll(int direction) {
+    static bool anim_running = false;
+    if (anim_running) return;
+    anim_running = true;
+
+    int start_y = lv_obj_get_y(list_inner);
+    int end_y = start_y - direction * bar_height;
+
+    lv_anim_t a;
+    lv_anim_init(&a);
+    lv_anim_set_var(&a, list_inner);
+    lv_anim_set_values(&a, start_y, end_y);
+    lv_anim_set_time(&a, 150); // scroll speed
+    lv_anim_set_exec_cb(&a, [](void* obj, int32_t v) {
+        lv_obj_set_y((lv_obj_t*)obj, v);
+    });
+    lv_anim_set_ready_cb(&a, [](lv_anim_t* a) {
+        render_visible_range();
+        anim_running = false;
+    });
+    lv_anim_start(&a);
 }
 
 void highlight_selected() {
-    uint32_t child_count = lv_obj_get_child_cnt(list_inner);
-    for (uint32_t i = 0; i < child_count; i++) {
-        lv_obj_t* child = lv_obj_get_child(list_inner, i);
+    uint32_t count = lv_obj_get_child_cnt(list_inner);
+    int start = std::max(first_visible_index - buffer_above, 0);
 
-        if ((int)i == selected_index) {
-            // Selected: white border, thick
-            lv_obj_set_style_border_width(child, 4, 0);      // thick border
+    for (uint32_t i = 0; i < count; i++) {
+        lv_obj_t* child = lv_obj_get_child(list_inner, i);
+        int global_index = start + i;
+
+        if (global_index == selected_index) {
+            lv_obj_set_style_border_width(child, 4, 0);
             lv_obj_set_style_border_color(child, lv_color_white(), 0);
             lv_obj_set_style_border_opa(child, LV_OPA_COVER, 0);
         } else {
-            // Unselected: no border
-            lv_obj_set_style_border_width(child, 0, 0);
+            lv_obj_set_style_border_width(child, 4, 0);
+            lv_obj_set_style_border_color(child, lv_color_black(), 0);
+            lv_obj_set_style_border_opa(child, LV_OPA_COVER, 0);
         }
     }
 }
 
 void move_selection(int direction) {
-    int child_count = lv_obj_get_child_cnt(list_inner);
+    if (command_list.empty()) return;
+
     selected_index += direction;
-    if (selected_index < 0) selected_index = 0;
-    if (selected_index >= child_count) selected_index = child_count - 1;
+    selected_index = std::clamp(selected_index, 0, (int)command_list.size() - 1);
 
-    // If near edges, adjust visible offset
-    if (selected_index < visible_offset) {
-        visible_offset = selected_index;
-    } else if (selected_index >= visible_offset + VISIBLE_COUNT) {
-        visible_offset = selected_index - VISIBLE_COUNT + 1;
+    if (selected_index < first_visible_index) {
+        first_visible_index = selected_index;
+        animate_scroll(-1);
+    } 
+    else if (selected_index >= first_visible_index + window_size) {
+        first_visible_index = selected_index - window_size + 1;
+        animate_scroll(1);
+    } 
+    else {
+        highlight_selected();
     }
-
-    update_list_position();
-    highlight_selected();
 }
 
-void up_event(lv_event_t* e) { move_selection(-1); }
-void down_event(lv_event_t* e) { move_selection(1); }
+void up_event(lv_event_t* e) {
+    lv_event_code_t code = lv_event_get_code(e);
+    uint32_t now = pros::millis(); // or lv_tick_get()
+    if (code == LV_EVENT_PRESSED) {
+        press_start_time_up = now;
+        holding_up = false; // reset
+    }
+    else if (code == LV_EVENT_PRESSING) {
+        if (!holding_up && (now - press_start_time_up >= HOLD_THRESHOLD)) {
+            holding_up = true; // now considered "held"
+            last_repeat_time = now;
+            move_selection(-1); // initial repeat
+        } else if (holding_up && (now - last_repeat_time >= REPEAT_INTERVAL)) {
+            move_selection(-1);
+            last_repeat_time = now;
+        }
+    }
+    else if (code == LV_EVENT_RELEASED || code == LV_EVENT_PRESS_LOST) {
+        if (!holding_up) {
+            // short press -> regular tap
+            move_selection(-1);
+        }
+        holding_up = false;
+    }
+}
+
+void down_event(lv_event_t* e) {
+    lv_event_code_t code = lv_event_get_code(e);
+    uint32_t now = pros::millis(); // or lv_tick_get()
+    if (code == LV_EVENT_PRESSED) {
+        press_start_time_down = now;
+        holding_down = false;
+    }
+    else if (code == LV_EVENT_PRESSING) {
+        if (!holding_down && (now - press_start_time_down >= HOLD_THRESHOLD)) {
+            holding_down = true;
+            last_repeat_time = now;
+            move_selection(1); // initial repeat
+        } else if (holding_down && (now - last_repeat_time >= REPEAT_INTERVAL)) {
+            move_selection(1);
+            last_repeat_time = now;
+        }
+    }
+    else if (code == LV_EVENT_RELEASED || code == LV_EVENT_PRESS_LOST) {
+        if (!holding_down) {
+            // short press -> regular tap
+            move_selection(1);
+        }
+        holding_down = false;
+    }
+}
+
+void delete_selected_command(lv_event_t* e) { // Deletes the currently selected command
+    if (selected_index < 0 || selected_index >= (int)command_list.size()) return;
+    // Remove from the data list
+    command_list.erase(command_list.begin() + selected_index);
+    // Adjust selected_index
+    if (selected_index >= (int)command_list.size()) {
+        selected_index = (int)command_list.size() - 1;
+    }
+    // Refresh the visible range
+    ensure_selected_visible();
+}
+
+void load_auton_event() {
+    std::ifstream file("/usd/auton.txt");
+    if (!file.is_open()) return;
+    command_list.clear();
+
+    std::string line;
+    while (std::getline(file, line)) {
+        if (line.empty()) continue;
+        CommandData data;
+        switch (line[0]) {
+            case 'm': data.type = "move"; break;
+            case 'w': data.type = "wait"; break;
+            case 's': data.type = "motor"; break;
+            case 'p': data.type = "piston"; break;
+            default: continue;
+        }
+        data.line = line;
+        command_list.push_back(data);
+    }
+    file.close();
+
+    first_visible_index = 0;
+    selected_index = 0;
+    render_visible_range();
+}
+
+void save_auton_event(lv_event_t* e) {
+    std::ofstream file("/usd/auton.txt");
+    if (!file.is_open()) return;
+
+    for (const auto& cmd : command_list) {
+        file << cmd.line << "\n";
+    }
+
+    file.close();
+}
 
 // Page builder
 void build_editor_page() {
@@ -532,17 +703,8 @@ void build_editor_page() {
     lv_obj_set_style_pad_all(page_editor, 0, 0);
     lv_obj_set_style_bg_opa(page_editor, LV_OPA_TRANSP, 0);
 
-    // ===== LIST MASK (acts as viewport) =====
-    lv_obj_t* list_view = lv_obj_create(page_editor);
-    lv_obj_set_size(list_view, 395, 240);
-    lv_obj_set_pos(list_view, 0, 0);
-    lv_obj_clear_flag(list_view, LV_OBJ_FLAG_SCROLLABLE);
-    lv_obj_set_style_pad_all(list_view, 0, 0);
-    lv_obj_set_style_clip_corner(list_view, true, 0); // mask children outside bounds
-    lv_obj_set_scrollbar_mode(list_view, LV_SCROLLBAR_MODE_OFF);
-
     // ===== INNER LIST =====
-    list_inner = lv_obj_create(list_view);
+    list_inner = lv_obj_create(page_editor);
     lv_obj_set_size(list_inner, 395, LV_SIZE_CONTENT); // very tall to allow many items
     lv_obj_set_flex_flow(list_inner, LV_FLEX_FLOW_COLUMN);
     lv_obj_set_style_pad_row(list_inner, 4, 0); // spacing between bars
@@ -551,7 +713,7 @@ void build_editor_page() {
     // Add button
     lv_obj_t *btn_add = lv_btn_create(page_editor);
     lv_obj_set_size(btn_add, 70, 40);
-    lv_obj_set_pos(btn_add, 405, 5);
+    lv_obj_set_pos(btn_add, 405, 0);
     lv_obj_add_event_cb(btn_add, PopupManager::openAddCommand, LV_EVENT_CLICKED, NULL);
     lv_obj_t *lbl_add = lv_label_create(btn_add);
     lv_label_set_text(lbl_add, "Add");
@@ -561,7 +723,7 @@ void build_editor_page() {
     lv_obj_t *btn_remove = lv_btn_create(page_editor);
     lv_obj_set_size(btn_remove, 70, 40);
     lv_obj_set_pos(btn_remove, 405, 50);
-    //lv_obj_add_event_cb(btn_remove, add_command_event, LV_EVENT_CLICKED, NULL);
+    lv_obj_add_event_cb(btn_remove, delete_selected_command, LV_EVENT_CLICKED, NULL);
     lv_obj_t *lbl_remove = lv_label_create(btn_remove);
     lv_label_set_text(lbl_remove, "Del");
     lv_obj_center(lbl_remove);
@@ -570,7 +732,7 @@ void build_editor_page() {
     lv_obj_t *btn_up = lv_btn_create(page_editor);
     lv_obj_set_size(btn_up, 70, 40);
     lv_obj_set_pos(btn_up, 405, 95);
-    lv_obj_add_event_cb(btn_up, up_event, LV_EVENT_CLICKED, NULL);
+    lv_obj_add_event_cb(btn_up, up_event, LV_EVENT_ALL, NULL);
     lv_obj_t *lbl_up = lv_label_create(btn_up);
     lv_label_set_text(lbl_up, "UP");
     lv_obj_center(lbl_up);
@@ -579,7 +741,7 @@ void build_editor_page() {
     lv_obj_t *btn_down = lv_btn_create(page_editor);
     lv_obj_set_size(btn_down, 70, 40);
     lv_obj_set_pos(btn_down, 405, 140);
-    lv_obj_add_event_cb(btn_down, down_event, LV_EVENT_CLICKED, NULL);
+    lv_obj_add_event_cb(btn_down, down_event, LV_EVENT_ALL, NULL);
     lv_obj_t *lbl_down = lv_label_create(btn_down);
     lv_label_set_text(lbl_down, "Down");
     lv_obj_center(lbl_down);
@@ -594,45 +756,8 @@ void build_editor_page() {
     lv_obj_center(lbl_down);
 }
 
-void load_auton_event() {
-    std::ifstream file("/usd/auton.txt");
-    if (!file.is_open()) return;
-    lv_obj_clean(list_inner);
-    std::string line;
-    while (std::getline(file, line)) {
-        if (line.empty()) continue;
-        std::string type;
-        switch (line[0]) {
-            case 'm': type = "move"; break;
-            case 'w': type = "wait"; break;
-            case 's': type = "motor"; break;
-            case 'p': type = "piston"; break;
-            default: continue;
-        }
-        CommandBar cmd = CommandBar::create(list_inner, type);
-        cmd.deserialize(line);
-    }
-    file.close();
-}
 
-void save_auton_event(lv_event_t* e) {
-    std::ofstream file("/usd/auton.txt");
-    if (!file.is_open()) return;
-    uint32_t count = lv_obj_get_child_cnt(list_inner);
-    for (uint32_t i = 0; i < count; i++) {
-        lv_obj_t* bar = lv_obj_get_child(list_inner, i);
-        lv_color_t bg = lv_obj_get_style_bg_color(bar, 0);
-        std::string type;
-        if (lv_color_to32(bg) == lv_color_to32(lv_palette_main(LV_PALETTE_YELLOW))) type = "move";
-        else if (lv_color_to32(bg) == lv_color_to32(lv_palette_main(LV_PALETTE_GREEN))) type = "wait";
-        else if (lv_color_to32(bg) == lv_color_to32(lv_palette_main(LV_PALETTE_BLUE))) type = "motor";
-        else if (lv_color_to32(bg) == lv_color_to32(lv_palette_main(LV_PALETTE_RED))) type = "piston";
-        CommandBar cmd{bar, type};
-        file << cmd.serialize() << "\n";
-    }
-    file.close();
-}
-
+// --- Initialization ---
 void Setup_lvgl_selector() {
     build_home_page();
     build_editor_page();

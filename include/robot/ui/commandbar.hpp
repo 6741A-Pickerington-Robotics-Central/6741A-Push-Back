@@ -16,6 +16,62 @@
 // Forward Function Declarations
 extern lv_obj_t* create_number_button(lv_obj_t* parent, const char* text, int id);
 
+struct CommandData {
+    std::string type;
+    std::string line; // serialized command
+};
+
+// Return a serialized string for the lv_obj_t* bar (same format as CommandBar::serialize)
+static std::string serialize_bar(lv_obj_t* bar) {
+    if (!bar) return "";
+    // Determine type by background color like your save_auton_event did
+    lv_color_t bg = lv_obj_get_style_bg_color(bar, 0);
+    uint32_t bg32 = lv_color_to32(bg);
+    uint32_t yellow = lv_color_to32(lv_palette_main(LV_PALETTE_YELLOW));
+    uint32_t green  = lv_color_to32(lv_palette_main(LV_PALETTE_GREEN));
+    uint32_t blue   = lv_color_to32(lv_palette_main(LV_PALETTE_BLUE));
+    uint32_t red    = lv_color_to32(lv_palette_main(LV_PALETTE_RED));
+    if (bg32 == yellow) {
+        // move: layout was: label, btnX, btnY, label(dir:), btnDir
+        lv_obj_t* btnX = lv_obj_get_child(bar, 1);
+        lv_obj_t* btnY = lv_obj_get_child(bar, 2);
+        lv_obj_t* btnDir = lv_obj_get_child(bar, 4);
+        const char* x = lv_label_get_text(lv_obj_get_child(btnX, 0));
+        const char* y = lv_label_get_text(lv_obj_get_child(btnY, 0));
+        const char* dir = lv_label_get_text(lv_obj_get_child(btnDir, 0));
+        return "m,r," + std::string(x) + "," + std::string(y) + "," + std::string(dir);
+    } else if (bg32 == green) {
+        // wait: label, btnSec, label sec
+        lv_obj_t* btn = lv_obj_get_child(bar, 1);
+        const char* sec = lv_label_get_text(lv_obj_get_child(btn, 0));
+        return "w,r," + std::string(sec);
+    } else if (bg32 == blue) {
+        // motor: label, dropdown, label "at", btnSpeed
+        lv_obj_t* dropdown = lv_obj_get_child(bar, 1);
+        lv_obj_t* btn = lv_obj_get_child(bar, 3);
+        char buffer[32];
+        lv_dropdown_get_selected_str(dropdown, buffer, sizeof(buffer));
+        char motor_letter = 'a';
+        if (strcmp(buffer, "Intake Top") == 0) motor_letter = 'a';
+        else if (strcmp(buffer, "Intake Middle") == 0) motor_letter = 'b';
+        else if (strcmp(buffer, "Intake Bottom") == 0) motor_letter = 'c';
+        const char* speed = lv_label_get_text(lv_obj_get_child(btn, 0));
+        return "s," + std::string(1, motor_letter) + "," + std::string(speed);
+    } else if (bg32 == red) {
+        // piston: label, dropdown, label "to", switch
+        lv_obj_t* dropdown = lv_obj_get_child(bar, 1);
+        lv_obj_t* sw = lv_obj_get_child(bar, 3);
+        char buffer[32];
+        lv_dropdown_get_selected_str(dropdown, buffer, sizeof(buffer));
+        char piston_letter = 'd';
+        if (strcmp(buffer, "Descore") == 0) piston_letter = 'd';
+        else if (strcmp(buffer, "Weedwacker") == 0) piston_letter = 'w';
+        int state = lv_obj_has_state(sw, LV_STATE_CHECKED) ? 1 : 0;
+        return "p," + std::string(1, piston_letter) + "," + std::to_string(state);
+    }
+    return "";
+}
+
 /**
  * @brief A command bar representing a single robot action.
  *
@@ -28,13 +84,14 @@ class CommandBar {
 public:
     lv_obj_t* bar;        // Root LVGL object for this command
     std::string type;     // "move", "wait", "motor", or "piston"
+
     // === Factory ===
     static CommandBar create(lv_obj_t* parent, const std::string& type) {
         CommandBar cmd;
         cmd.type = type;
         cmd.bar = lv_obj_create(parent);
 
-        lv_obj_set_size(cmd.bar, 350, 55);
+        lv_obj_set_size(cmd.bar, 370, 55);
         lv_obj_set_flex_flow(cmd.bar, LV_FLEX_FLOW_ROW);
         lv_obj_set_style_flex_cross_place(cmd.bar, LV_FLEX_ALIGN_CENTER, 0);
         lv_obj_set_style_pad_all(cmd.bar, 4, 0);
@@ -44,6 +101,7 @@ public:
         cmd.build();
         return cmd;
     }
+
     // === Serialize (convert LVGL state -> string line) ===
     std::string serialize() const {
         if (type == "move") {
@@ -85,46 +143,63 @@ public:
         }
         return "";
     }
+
     // === Deserialize (load string data -> LVGL UI) ===
     void deserialize(const std::string& line) {
+        if (line.size() < 3) return; // prevent out-of-range
+
         if (type == "move") {
+            // Expected format: m,r,<x>,<y>,<dir>
             size_t pos1 = line.find(',', 4);
-            size_t pos2 = line.find(',', pos1 + 1);
-            size_t pos3 = line.find(',', pos2 + 1);
-            std::string x = line.substr(4, pos1 - 4);
-            std::string y = line.substr(pos1 + 1, pos2 - pos1 - 1);
-            std::string dir = line.substr(pos2 + 1);
-            lv_obj_t* btnX = lv_obj_get_child(bar, 1);
-            lv_obj_t* btnY = lv_obj_get_child(bar, 2);
-            lv_obj_t* btnDir = lv_obj_get_child(bar, 4);
-            lv_label_set_text(lv_obj_get_child(btnX, 0), x.c_str());
-            lv_label_set_text(lv_obj_get_child(btnY, 0), y.c_str());
-            lv_label_set_text(lv_obj_get_child(btnDir, 0), dir.c_str());
+            size_t pos2 = (pos1 != std::string::npos) ? line.find(',', pos1 + 1) : std::string::npos;
+            size_t pos3 = (pos2 != std::string::npos) ? line.find(',', pos2 + 1) : std::string::npos;
+
+            if (pos1 == std::string::npos || pos2 == std::string::npos)
+                return; // malformed line, skip safely
+
+            std::string x = (line.size() > 4) ? line.substr(4, pos1 - 4) : "0";
+            std::string y = (pos2 > pos1 + 1) ? line.substr(pos1 + 1, pos2 - pos1 - 1) : "0";
+            std::string dir = (pos3 != std::string::npos && pos3 + 1 < line.size())
+                                ? line.substr(pos2 + 1)
+                                : "0";
+
+            setButtonText(1, x);
+            setButtonText(2, y);
+            setButtonText(4, dir);
         }
         else if (type == "wait") {
-            std::string sec = line.substr(4);
-            lv_obj_t* btn = lv_obj_get_child(bar, 1);
-            lv_label_set_text(lv_obj_get_child(btn, 0), sec.c_str());
+            std::string sec = (line.size() > 4) ? line.substr(4) : "0";
+            setButtonText(1, sec);
         }
         else if (type == "motor") {
+            if (line.size() < 4) return;
             char motor_letter = line[2];
-            std::string speed = line.substr(4);
+            std::string speed = (line.size() > 4) ? line.substr(4) : "0";
+
             lv_obj_t* dropdown = lv_obj_get_child(bar, 1);
             lv_obj_t* btn = lv_obj_get_child(bar, 3);
-            if (motor_letter == 'a') lv_dropdown_set_selected(dropdown, 0);
-            else if (motor_letter == 'b') lv_dropdown_set_selected(dropdown, 1);
-            else if (motor_letter == 'c') lv_dropdown_set_selected(dropdown, 2);
-            lv_label_set_text(lv_obj_get_child(btn, 0), speed.c_str());
+            if (dropdown) {
+                if (motor_letter == 'a') lv_dropdown_set_selected(dropdown, 0);
+                else if (motor_letter == 'b') lv_dropdown_set_selected(dropdown, 1);
+                else if (motor_letter == 'c') lv_dropdown_set_selected(dropdown, 2);
+            }
+            if (btn) lv_label_set_text(lv_obj_get_child(btn, 0), speed.c_str());
         }
         else if (type == "piston") {
+            if (line.size() < 4) return;
             char piston_letter = line[2];
-            std::string state_str = line.substr(4);
+            std::string state_str = (line.size() > 4) ? line.substr(4) : "0";
+
             lv_obj_t* dropdown = lv_obj_get_child(bar, 1);
             lv_obj_t* sw = lv_obj_get_child(bar, 3);
-            if (piston_letter == 'd') lv_dropdown_set_selected(dropdown, 0);
-            else if (piston_letter == 'w') lv_dropdown_set_selected(dropdown, 1);
-            if (state_str == "1") lv_obj_add_state(sw, LV_STATE_CHECKED);
-            else lv_obj_clear_state(sw, LV_STATE_CHECKED);
+            if (dropdown) {
+                if (piston_letter == 'd') lv_dropdown_set_selected(dropdown, 0);
+                else if (piston_letter == 'w') lv_dropdown_set_selected(dropdown, 1);
+            }
+            if (sw) {
+                if (state_str == "1") lv_obj_add_state(sw, LV_STATE_CHECKED);
+                else lv_obj_clear_state(sw, LV_STATE_CHECKED);
+            }
         }
     }
 private:
@@ -161,6 +236,7 @@ private:
             lv_switch_create(bar);
         }
     }
+
     // === Helper: Split string by comma ===
     static std::vector<std::string> split(const std::string& s, char delimiter) {
         std::vector<std::string> tokens;
