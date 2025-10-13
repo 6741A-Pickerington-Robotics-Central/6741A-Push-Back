@@ -30,7 +30,7 @@ char number_input[16] = "";
 lv_obj_t* active_button = nullptr;
 lv_obj_t* display_label = nullptr;
 int selected_corner = -1;  // 0=Red Left, 1=Red Right, 2=Blue Left, 3=Blue Right
-int selected_slot   = -1;  // 0,1,2
+int selected_slot = -1;  // 0,1,2
 
 // Simple device list (you can expand this)
 struct Device {
@@ -51,146 +51,6 @@ std::vector<Device> robotMotors = {
     {"Intake Motor 2", 10, true},
     {"Intake Motor 3", 8, true}
 };
-
-/////////////////////////////////////////////
-//             Run The Auton               //
-/////////////////////////////////////////////
-void runauton(void);
-#if 0
-void runauton(void) {
-    if (running) return; // Prevent running multiple autons simultaneously
-    running = true; // Set the running flag to true
-    leftMotors.set_brake_mode(pros::E_MOTOR_BRAKE_BRAKE); // Set left motors to brake mode
-    rightMotors.set_brake_mode(pros::E_MOTOR_BRAKE_BRAKE); // Set right motors to brake mode
-    chassis.setPose(0, 0, 0); // Set position to x:0, y:0, heading:0
-    if (index >= 0 && index < autonOptions.size()) {
-        if (!autonOptions[index].loadFromFile()) {
-            printf("Failed to load auton file!\n");
-        } else {
-            runtxtauton(autonOptions[index].getCommands());
-        }
-    } else if (selectedauton == -1) {
-        skills_auton(); // Run the skills auton if selectedauton is -1
-    } else if (selectedauton == -2) {
-        pros::delay(1); //Do nothing
-    }
-    pros::delay(1000); // Allow IMU to stabilize
-    leftMotors.set_brake_mode(pros::E_MOTOR_BRAKE_COAST); // Set left motors to coast mode
-    rightMotors.set_brake_mode(pros::E_MOTOR_BRAKE_COAST); // Set right motors to coast mode
-    running = false; // Set the running flag to false after the auton is complete
-}
-
-void runtxtauton(std::vector<std::string> list) {
-    chassis.setPose(0, 0, 0); // Reset the chassis pose to (0, 0, 0) before running the auton
-    if (list.empty()) {
-      printf("The list is empty. No action taken.\n");
-      return;
-    }
-    // Iterate through the list
-    for (const auto& item : list) {
-      printf("Processing item: %s\n", item.c_str());  // Debugging line
-      if (!item.empty()) {
-        // Get the first letter of the current item
-        char firstLetter = item[0];
-        
-        // Perform actions based on the first letter
-        switch (firstLetter) {
-            case 'm': {  // Handle 'm'
-                printf("Processing '%s': First letter is 'm'. Performing move robot action.\n", item.c_str());
-                const char* dataStr = item.c_str() + 1;  // Skip the first letter
-            
-                const char* firstComma = strchr(dataStr, ',');
-                if (!firstComma) {
-                    printf("Error: '%s' does not contain enough values.\n", item.c_str());
-                    break;
-                }
-            
-                const char* secondComma = strchr(firstComma + 1, ',');
-                if (!secondComma) {
-                    printf("Error: '%s' does not contain a third value.\n", item.c_str());
-                    break;
-                }
-            
-                char* endPtr;
-                double x = std::strtod(dataStr, &endPtr);
-                if (endPtr == dataStr || *endPtr != ',') {
-                    printf("Error processing '%s': Could not extract a valid x.\n", item.c_str());
-                    break;
-                }
-            
-                double y = std::strtod(firstComma + 1, &endPtr);
-                if (endPtr == firstComma + 1 || *endPtr != ',') {
-                    printf("Error processing '%s': Could not extract a valid y.\n", item.c_str());
-                    break;
-                }
-            
-                double theta = std::strtod(secondComma + 1, &endPtr);
-                if (endPtr == secondComma + 1) {
-                    printf("Error processing '%s': Could not extract a valid theta.\n", item.c_str());
-                    break;
-                }
-            
-                printf("%f,%f,%f\n", x, y, theta);
-                chassis.moveToPose(x, y, theta, 1000);
-                break;
-            }
-            case 't': { // Handle 't'
-            printf("Processing '%s': First letter is 't'. Performing turn robot action.\n", item.c_str());
-            const char* dataStr = item.c_str() + 1;  // Skip the first letter
-            double theta = std::strtod(dataStr, nullptr);  // Convert the remaining string to a double
-            if (theta == 0.0 && dataStr[0] != '0') {
-              printf("Error processing '%s': Could not convert to a valid theta.\n", item.c_str());
-              break;
-            }
-            chassis.turnToHeading(theta, 1000); // Turn to the specified angle
-            break;
-            }  
-            case 's': { // Handle 's'
-                printf("Processing '%s': First letter is 's'. Performing swing robot action.\n", item.c_str());
-                const char* dataStr = item.c_str() + 1;  // Skip the first letter
-                double theta = std::strtod(dataStr, nullptr);  // Convert the remaining string to a double
-                if (theta == 0.0 && dataStr[0] != '0') {
-                  printf("Error processing '%s': Could not convert to a valid theta.\n", item.c_str());
-                  break;
-                }
-                //chassis.swingToHeading(float theta, DriveSide lockedSide, int timeout); // Swing to the specified angle
-
-            }
-            default:  // Handle other cases
-                if (matchingDevice) {
-                    printf("Processing '%s': Found matching ADIWrapper '%c'.\n", item.c_str(), firstLetter);
-                    const char* numStr = item.c_str() + 1;  // Skip the first letter
-                    float value = std::atof(numStr);  // Convert the remaining string to a float
-                    if (value == 0.0 && numStr[0] != '0') {
-                        printf("Error processing '%s': Could not convert to a valid float.\n", item.c_str());
-                    } else {
-                        matchingDevice->set_value(value != 0);
-                    }
-                } else {
-                    printf("No matching ADIWrapper found for letter '%c'.\n", firstLetter);
-                }  
-                if (matchingMotor) {
-                    printf("Processing '%s': Found matching MotorWrapper '%c'.\n", item.c_str(), firstLetter);
-
-                    const char* numStr = item.c_str() + 1;  // Skip the first letter
-                    int value = std::atoi(numStr);  // Convert the remaining string to an integer
-
-                    if (value == 0 && numStr[0] != '0') {
-                        printf("Error processing '%s': Could not convert to a valid integer.\n", item.c_str());
-                    } else {
-                        matchingMotor->set_velocity(value);
-                    }
-                } else {
-                    printf("No matching MotorWrapper found for letter '%c'.\n", firstLetter);
-                }
-                break;
-            }
-      } else {
-        printf("Skipping an empty item in the list.\n");
-      }
-    }
-}  
-#endif
 
 // Page containers
 lv_obj_t *page_home;
@@ -336,6 +196,69 @@ void corner_btn_cb(lv_event_t* e) { // Corner button callback
     lv_obj_add_event_cb(back_btn, back_to_corners_cb, LV_EVENT_CLICKED, NULL);
 }
 
+void run_skills_task(void* param) {
+    skills_auton();
+}
+
+// Free function for LVGL event
+void skills_run_now_cb(lv_event_t* e) {
+    // Delete the popup first
+    lv_obj_del(lv_obj_get_parent(lv_event_get_current_target(e)));
+
+    // Start the task (must pass all 4 arguments)
+    pros::Task([] {
+        pros::delay(1000); // slight delay to allow user to move away
+        skills_auton();
+    }, TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "SkillsTask");
+
+}
+
+// Free function for Select button
+void skills_select_cb(lv_event_t* e) {
+    selected_corner = -2;
+    selected_slot = 0;
+    lv_label_set_recolor(auton_label, true);   
+    char buf[128];
+    sprintf(buf, "Selected: #00dd30ff Skills #");
+    lv_label_set_text(auton_label, buf);
+
+    // Delete popup
+    lv_obj_del(lv_obj_get_parent(lv_event_get_current_target(e)));
+}
+
+// Event callback for the Skills button
+static void skills_btn_event_cb(lv_event_t* e) {
+    // Create a modal popup
+    lv_obj_t *popup = lv_obj_create(lv_scr_act());
+    lv_obj_set_size(popup, 180, 125);
+    lv_obj_center(popup);
+    lv_obj_set_style_bg_color(popup, lv_color_white(), 0);
+    lv_obj_set_style_border_width(popup, 4, 0);
+    lv_obj_set_style_border_color(popup, lv_color_black(), 0);
+    lv_obj_clear_flag(popup, LV_OBJ_FLAG_SCROLLABLE); // prevent scrolling inside popup
+
+    // Run Now button
+    lv_obj_t *btn_run_now = lv_btn_create(popup);
+    lv_obj_set_size(btn_run_now, 160, 40);
+    lv_obj_align(btn_run_now, LV_ALIGN_TOP_MID, 0, 0);
+    lv_obj_t *lbl_run_now = lv_label_create(btn_run_now);
+    lv_label_set_text(lbl_run_now, "Run Skills Now");
+    lv_obj_center(lbl_run_now);
+
+    // Select button
+    lv_obj_t *btn_select = lv_btn_create(popup);
+    lv_obj_set_size(btn_select, 160, 40);
+    lv_obj_align(btn_select, LV_ALIGN_BOTTOM_MID, 0, 0);
+    lv_obj_t *lbl_select = lv_label_create(btn_select);
+    lv_label_set_text(lbl_select, "Select Skills To Run");
+    lv_obj_center(lbl_select);
+
+    // Add event callbacks to the buttons
+    lv_obj_add_event_cb(btn_run_now, skills_run_now_cb, LV_EVENT_CLICKED, NULL);
+
+    lv_obj_add_event_cb(btn_select, skills_select_cb, LV_EVENT_CLICKED, NULL);
+}
+
 void build_home_page() {
     page_home = lv_obj_create(lv_scr_act());
     lv_obj_set_size(page_home, 480, 240);
@@ -398,9 +321,10 @@ void build_home_page() {
     lv_obj_t *btn_run = lv_btn_create(button_col);
     lv_obj_t *lbl_run = lv_label_create(btn_run);
     lv_obj_align(lbl_run, LV_ALIGN_CENTER, 0, 0);
-    lv_label_set_text(lbl_run, "Run");
+    lv_label_set_text(lbl_run, "Skills");
     lv_obj_set_pos(btn_run, 0, 120);
     lv_obj_set_size(btn_run, LV_PCT(100), 30);
+    lv_obj_add_event_cb(btn_run, skills_btn_event_cb, LV_EVENT_CLICKED, NULL);
     
     // Right half with auton list
     build_corner_list(); // populate with corner buttons
@@ -815,7 +739,7 @@ void build_editor_page() {
     // Add button
     lv_obj_t *btn_add = lv_btn_create(page_editor);
     lv_obj_set_size(btn_add, 70, 40);
-    lv_obj_set_pos(btn_add, 405, 0);
+    lv_obj_set_pos(btn_add, 405, 5);
     lv_obj_add_event_cb(btn_add, PopupManager::openAddCommand, LV_EVENT_CLICKED, NULL);
     lv_obj_t *lbl_add = lv_label_create(btn_add);
     lv_label_set_text(lbl_add, "Add");

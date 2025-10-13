@@ -2,6 +2,7 @@
 #define POPUP_HPP
 #include "robot/ui/commandbar.hpp"
 #include "robot/ui/colors.hpp"
+#include "robot/robot.hpp"
 #include "liblvgl/lvgl.h"   
 extern lv_obj_t* list_inner;
 
@@ -333,11 +334,32 @@ private:
         }
         goto_home(e);
     }
+    // Save and run button event
+    static void save_and_run_auton_event(lv_event_t* e) {
+        save_auton_event(e);
+        // Delete popup
+        if (popup) {
+            lv_obj_del(popup);
+            popup = nullptr;
+        }
+        // Start auton in separate PROS task
+        //pros::Task([](void*) {
+        //    // Slight delay to allow user to move away
+        //    pros::delay(1000);
+        //    // Run the auton
+        //    //();
+        //}, TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "RunAutonTask");
+        pros::delay(1000);
+        std::string path = get_auton_file_path(); // your existing function
+        std::vector<std::string> auton_lines = load_auton_for_runtxt(path);
+        runtxtauton(auton_lines);
+
+    }
 public:
     static void open(lv_event_t* e) {
         lv_obj_t* parent = lv_scr_act();
         popup = lv_obj_create(parent);
-        lv_obj_set_size(popup, 160, 190);
+        lv_obj_set_size(popup, 160, 200);
         lv_obj_clear_flag(popup, LV_OBJ_FLAG_SCROLLABLE);
         lv_obj_align(popup, LV_ALIGN_CENTER, 80, 0);
         lv_obj_set_style_bg_color(popup, purple, 0);
@@ -346,15 +368,23 @@ public:
         // Save button
         lv_obj_t* btn_save = lv_btn_create(popup);
         lv_obj_set_size(btn_save, 150, 40);
-        lv_obj_align(btn_save, LV_ALIGN_CENTER, 0, -65);
+        lv_obj_align(btn_save, LV_ALIGN_CENTER, 0, -70);
         lv_obj_t* lbl_save = lv_label_create(btn_save);
         lv_label_set_text(lbl_save, "Save");
         lv_obj_center(lbl_save);
         lv_obj_add_event_cb(btn_save, save_auton_event, LV_EVENT_CLICKED, nullptr);
+        // Run button
+        lv_obj_t* btn_run = lv_btn_create(popup);
+        lv_obj_set_size(btn_run, 150, 40);
+        lv_obj_align(btn_run, LV_ALIGN_CENTER, 0, -23);
+        lv_obj_t* lbl_run = lv_label_create(btn_run);
+        lv_label_set_text(lbl_run, "Run");
+        lv_obj_center(lbl_run);
+        lv_obj_add_event_cb(btn_run, save_and_run_auton_event, LV_EVENT_CLICKED, nullptr);
         // Home button
         lv_obj_t* btn_home = lv_btn_create(popup);
         lv_obj_set_size(btn_home, 150, 40);
-        lv_obj_align(btn_home, LV_ALIGN_CENTER, 0, 20);
+        lv_obj_align(btn_home, LV_ALIGN_CENTER, 0, 23);
         lv_obj_t* lbl_home = lv_label_create(btn_home);
         lv_label_set_text(lbl_home, "Home");
         lv_obj_center(lbl_home);
@@ -362,7 +392,7 @@ public:
         // Close button
         lv_obj_t* btn_close = lv_btn_create(popup);
         lv_obj_set_size(btn_close, 150, 40);
-        lv_obj_align(btn_close, LV_ALIGN_CENTER, 0, 65);
+        lv_obj_align(btn_close, LV_ALIGN_CENTER, 0, 70);
         lv_obj_t* lbl_close = lv_label_create(btn_close);
         lv_label_set_text(lbl_close, "Close");
         lv_obj_center(lbl_close);

@@ -80,17 +80,6 @@ int weedwackercooldown = 0; // Cooldown timer for weedwacker toggle
 //           Main Code          //
 //////////////////////////////////
 
-void skills_auton() {
-    // Skills auton
-    chassis.moveToPose(2,45,-90,10000);
-    pros::delay(1000);
-    weedwacker.set_value(true);
-    descore.set_value(true);
-    pros::delay(100);
-    chassis.moveToPose(-7,45,-90,10000);
-
-}
-
 void initialize() {
     chassis.calibrate(); // Calibrate sensors
     bool pidtuning = false; // Set to true to enable the PID tuning screen
