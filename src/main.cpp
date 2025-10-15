@@ -2,80 +2,6 @@
 
 void screenTaskFunction(); // Forward declaration of the screen task function
 
-pros::Controller controller(pros::E_CONTROLLER_MASTER); // Controller
-pros::MotorGroup rightMotors({16,18,-19}, pros::MotorGearset::blue); // left motor group
-pros::MotorGroup leftMotors({-15,-13,11}, pros::MotorGearset::blue); // right motor group
-pros::Imu imu(7); // Inertial Sensor
-pros::Rotation horizontalEnc(4); // Horizontal tracking wheel encoder.
-pros::Rotation verticalEnc(5); // Vertical tracking wheel encoder.
-lemlib::TrackingWheel horizontal(&horizontalEnc, lemlib::Omniwheel::NEW_275, 1); // Horizontal tracking wheel.
-lemlib::TrackingWheel vertical(&verticalEnc, lemlib::Omniwheel::NEW_275, 0); // Vertical tracking wheel.
-// Drivetrain settings
-lemlib::Drivetrain drivetrain(&leftMotors, // left motor group
-                              &rightMotors, // right motor group
-                              12, // track width
-                              lemlib::Omniwheel::NEW_325,
-                              480, // drivetrain rpm
-                              2 // horizontal drift
-);
-// Lateral motion controller
-lemlib::ControllerSettings linearController(20, // proportional gain (kP)
-                                            0, // integral gain (kI)
-                                            0.1, // derivative gain (kD)
-                                            0, // anti windup
-                                            1, // small error range, in inches
-                                            100, // small error range timeout, in milliseconds
-                                            0, // large error range, in inches
-                                            0, // large error range timeout, in milliseconds
-                                            0 // maximum acceleration (slew)
-);
-// Angular motion controller
-lemlib::ControllerSettings angularController(0.9, // proportional gain (kP)
-                                             0, // integral gain (kI)
-                                             0.1, // derivative gain (kD)
-                                             0, // anti windup
-                                             3, // small error range, in degrees (2)
-                                             100, // small error range timeout, in milliseconds (100)
-                                             0, // large error range, in degrees (5)
-                                             0, // large error range timeout, in milliseconds (500)
-                                             0 // maximum acceleration (slew)
-);
-// Sensors for odometry
-lemlib::OdomSensors sensors(&vertical, // vertical tracking wheel
-                            nullptr, // vertical tracking wheel 2, set to nullptr as we don't have a second one
-                            &horizontal, // horizontal tracking wheel
-                            nullptr, // horizontal tracking wheel 2, set to nullptr as we don't have a second one
-                            &imu // inertial sensor
-);
-// Input curve for throttle input during driver control
-lemlib::ExpoDriveCurve throttleCurve(3, // joystick deadband out of 127
-                                     10, // minimum output where drivetrain will move out of 127
-                                     1.019 // expo curve gain
-);
-// Input curve for steer input during driver control
-lemlib::ExpoDriveCurve steerCurve(3, // joystick deadband out of 127
-                                  10, // minimum output where drivetrain will move out of 127
-                                  1.019 // expo curve gain
-);
-// Create the chassis
-lemlib::Chassis chassis(drivetrain, linearController, angularController, sensors, &throttleCurve, &steerCurve);
-
-//////////////////////////////////
-//        Other Settings        //
-//////////////////////////////////
-
-// Motor declarations
-pros::Motor Intake1(-3, pros::v5::MotorGears::green);  // first
-pros::Motor Intake2(10, pros::v5::MotorGears::green);  // middle
-pros::Motor Intake3(8, pros::v5::MotorGears::green);  // top
-
-
-// Digital outputs
-pros::adi::DigitalOut weedwacker('A');
-pros::adi::DigitalOut descore('B'); // Redirects balls to either top goal or hopper
-bool weedwackerState = false; // State of the weedwacker
-int weedwackercooldown = 0; // Cooldown timer for weedwacker toggle
-
 //////////////////////////////////
 //           Main Code          //
 //////////////////////////////////
@@ -99,46 +25,69 @@ void autonomous() {
 
 void opcontrol() {
     while (true) {
-        // Drivetrain Controls
-        int leftY = controller.get_analog(pros::E_CONTROLLER_ANALOG_RIGHT_Y);
-        int rightY = controller.get_analog(pros::E_CONTROLLER_ANALOG_LEFT_Y);
-        chassis.tank(rightY, leftY);
-        // Intake Controls
-        if (controller.get_digital(pros::E_CONTROLLER_DIGITAL_B)) { // Intake High Goal
-            Intake1.move_velocity(200);
-            Intake2.move_velocity(200);
-            Intake3.move_velocity(-200);
-        } else if (controller.get_digital(pros::E_CONTROLLER_DIGITAL_Y)) { // Intake Middle Goal
-            Intake1.move_velocity(200);
-            Intake2.move_velocity(200);
-            Intake3.move_velocity(200);
-        } else if (controller.get_digital(pros::E_CONTROLLER_DIGITAL_DOWN)) { // Outake
-            Intake1.move_velocity(-200);
-            Intake2.move_velocity(-200);
-            Intake3.move_velocity(-200);
-        } else { // Stop Intake
-            Intake1.move_velocity(0);
-            Intake2.move_velocity(0);
-            Intake3.move_velocity(0);
-        }
-        // Weedwacker Controls
-        if (controller.get_digital(pros::E_CONTROLLER_DIGITAL_R2)) {
-            weedwacker.set_value(1);
-        }
-        if (controller.get_digital(pros::E_CONTROLLER_DIGITAL_R1)) {
-            weedwacker.set_value(0);
-        }
-        // Descore and Ball Block Controls
-        if (controller.get_digital(pros::E_CONTROLLER_DIGITAL_L1)) {
-            descore.set_value(true); // Descore and Ball Block Active
-        }
-        if (controller.get_digital(pros::E_CONTROLLER_DIGITAL_L2)) {
-            descore.set_value(false); // Descore and Ball Block Deactive
+        if (!autonrunning) {
+            // Drivetrain Controls
+            int leftY = controller.get_analog(pros::E_CONTROLLER_ANALOG_RIGHT_Y);
+            int rightY = controller.get_analog(pros::E_CONTROLLER_ANALOG_LEFT_Y);
+            chassis.tank(rightY, leftY);
+            // Intake Controls
+            if (controller.get_digital(pros::E_CONTROLLER_DIGITAL_B)) { // Intake High Goal
+                Intake1.move_velocity(200);
+                if (ballblockstate)
+                {
+                    Intake2.move_velocity(170);
+                    Intake3.move_velocity(-200);
+                } else {
+                    Intake2.move_velocity(200);
+                    Intake3.move_velocity(-200);
+                }
+            } else if (controller.get_digital(pros::E_CONTROLLER_DIGITAL_Y)) { // Intake Middle Goal
+                Intake1.move_velocity(200);
+                Intake2.move_velocity(200);
+                Intake3.move_velocity(200);
+            } else if (controller.get_digital(pros::E_CONTROLLER_DIGITAL_DOWN)) { // Outake
+                Intake1.move_velocity(-200);
+                Intake2.move_velocity(-200);
+                Intake3.move_velocity(-200);
+            } else { // Stop Intake
+                Intake1.move_velocity(0);
+                Intake2.move_velocity(0);
+                Intake3.move_velocity(0);
+            }
+            // Weedwacker Controls
+            if (controller.get_digital(pros::E_CONTROLLER_DIGITAL_R2)) {
+                weedwacker.set_value(1);
+            }
+            if (controller.get_digital(pros::E_CONTROLLER_DIGITAL_R1)) {
+                weedwacker.set_value(0);
+            }
+            // Descore and Ball Block Controls
+            if (controller.get_digital(pros::E_CONTROLLER_DIGITAL_L1)) {
+                ballblock.set_value(true); // Descore and Ball Block Active
+                ballblockstate = true;
+            }
+            if (controller.get_digital(pros::E_CONTROLLER_DIGITAL_L2)) {
+                ballblock.set_value(false); // Descore and Ball Block Deactive
+                ballblockstate = false;
+            }
+            if (controller.get_digital(pros::E_CONTROLLER_DIGITAL_A) && descoreCooldown <= 0) { // Toggle Descore Position with cooldown
+                if (descoreState == false) {
+                    descore.set_value(1); // Descore Active
+                    descoreState = true;
+                    descoreCooldown = 300; // 300ms cooldown
+                } else {
+                descore.set_value(0); // Descore Deactive
+                descoreState = false;
+                descoreCooldown = 300; // 300ms cooldown
+                }
+            } else {
+                if (descoreCooldown > 0) descoreCooldown -= 20; // Decrease cooldown timer
+            }
         }
         pros::delay(20); // Delay to save system resources
     }
 }
-
+/*
 void screenTaskFunction() {
     pros::lcd::initialize(); // Initialize the LCD
     pros::lcd::set_text(0, "Chassis Debug"); // Set the LCD title
@@ -152,3 +101,4 @@ void screenTaskFunction() {
         pros::delay(75);// Delay to save resources
     }
 }
+*/

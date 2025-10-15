@@ -15,6 +15,7 @@
 
 // Forward Function Declarations
 extern lv_obj_t* create_number_button(lv_obj_t* parent, const char* text, int id);
+extern void update_command_list_from_bar(lv_obj_t* bar);
 
 struct CommandData {
     std::string type;
@@ -22,8 +23,10 @@ struct CommandData {
 };
 
 // Return a serialized string for the lv_obj_t* bar (same format as CommandBar::serialize)
+
 static std::string serialize_bar(lv_obj_t* bar) {
     if (!bar) return "";
+    printf("Serializing bar...\n");
     // Determine type by background color like your save_auton_event did
     lv_color_t bg = lv_obj_get_style_bg_color(bar, 0);
     uint32_t bg32 = lv_color_to32(bg);
@@ -51,7 +54,7 @@ static std::string serialize_bar(lv_obj_t* bar) {
         lv_obj_t* btn = lv_obj_get_child(bar, 3);
         char buffer[32];
         lv_dropdown_get_selected_str(dropdown, buffer, sizeof(buffer));
-        char motor_letter = 'a';
+        char motor_letter = ' ';
         if (strcmp(buffer, "Intake Top") == 0) motor_letter = 'a';
         else if (strcmp(buffer, "Intake Middle") == 0) motor_letter = 'b';
         else if (strcmp(buffer, "Intake Bottom") == 0) motor_letter = 'c';
@@ -63,15 +66,16 @@ static std::string serialize_bar(lv_obj_t* bar) {
         lv_obj_t* sw = lv_obj_get_child(bar, 3);
         char buffer[32];
         lv_dropdown_get_selected_str(dropdown, buffer, sizeof(buffer));
-        char piston_letter = 'd';
+        char piston_letter = ' ';
         if (strcmp(buffer, "Descore") == 0) piston_letter = 'd';
         else if (strcmp(buffer, "Weedwacker") == 0) piston_letter = 'w';
+        else if (strcmp(buffer, "Ball Block") == 0) piston_letter = 'b';
         int state = lv_obj_has_state(sw, LV_STATE_CHECKED) ? 1 : 0;
+        printf("Piston save State: %d\n", state);
         return "p," + std::string(1, piston_letter) + "," + std::to_string(state);
     }
     return "";
 }
-
 /**
  * @brief A command bar representing a single robot action.
  *
@@ -124,7 +128,7 @@ public:
             const char* speed = lv_label_get_text(lv_obj_get_child(btn, 0));
             char buffer[32];
             lv_dropdown_get_selected_str(dropdown, buffer, sizeof(buffer));
-            char motor_letter = 'a';
+            char motor_letter = ' ';
             if (strcmp(buffer, "Intake Top") == 0) motor_letter = 'a';
             else if (strcmp(buffer, "Intake Middle") == 0) motor_letter = 'b';
             else if (strcmp(buffer, "Intake Bottom") == 0) motor_letter = 'c';
@@ -135,9 +139,10 @@ public:
             lv_obj_t* sw = lv_obj_get_child(bar, 3);
             char buffer[32];
             lv_dropdown_get_selected_str(dropdown, buffer, sizeof(buffer));
-            char piston_letter = 'd';
+            char piston_letter = ' ';
             if (strcmp(buffer, "Descore") == 0) piston_letter = 'd';
             else if (strcmp(buffer, "Weedwacker") == 0) piston_letter = 'w';
+            else if (strcmp(buffer, "Ball Block") == 0) piston_letter = 'b';
             int state = lv_obj_has_state(sw, LV_STATE_CHECKED) ? 1 : 0;
             return "p," + std::string(1, piston_letter) + "," + std::to_string(state);
         }
@@ -224,6 +229,10 @@ private:
             lv_label_set_text(lv_label_create(bar), "Spin");
             auto motor = lv_dropdown_create(bar);
             lv_dropdown_set_options(motor, "Intake Top\nIntake Middle\nIntake Bottom");
+            lv_obj_add_event_cb(motor, [](lv_event_t* e){
+                lv_obj_t* bar = lv_obj_get_parent(lv_event_get_target(e));
+                update_command_list_from_bar(bar);
+            }, LV_EVENT_VALUE_CHANGED, nullptr);
             lv_label_set_text(lv_label_create(bar), "at");
             create_number_button(bar, "0", 1);
         }
@@ -231,9 +240,18 @@ private:
             lv_obj_set_style_bg_color(bar, red, 0);
             lv_label_set_text(lv_label_create(bar), "Toggle");
             auto piston = lv_dropdown_create(bar);
-            lv_dropdown_set_options(piston, "Descore\nWeedwacker");
+            lv_dropdown_set_options(piston, "Descore\nWeedwacker\nBall Block");
             lv_label_set_text(lv_label_create(bar), "to");
-            lv_switch_create(bar);
+            lv_obj_t* toggle = lv_switch_create(bar);
+            lv_obj_add_event_cb(piston, [](lv_event_t* e){
+                lv_obj_t* bar = lv_obj_get_parent(lv_event_get_target(e));
+                update_command_list_from_bar(bar);
+            }, LV_EVENT_VALUE_CHANGED, nullptr);
+        
+            lv_obj_add_event_cb(toggle, [](lv_event_t* e){
+                lv_obj_t* bar = lv_obj_get_parent(lv_event_get_target(e));
+                update_command_list_from_bar(bar);
+            }, LV_EVENT_VALUE_CHANGED, nullptr);
         }
     }
 

@@ -505,6 +505,14 @@ void ensure_selected_visible() {
     render_visible_range(); // redraw visible bars
 }
 
+void update_command_list_from_bar(lv_obj_t* bar) {
+    intptr_t idx = (intptr_t)lv_obj_get_user_data(bar);
+    if (idx >= 0 && idx < (intptr_t)command_list.size()) {
+        command_list[(size_t)idx].line = serialize_bar(bar);
+        printf("Updated command_list[%ld] to %s\n", idx, command_list[(size_t)idx].line.c_str());
+    }
+}
+
 lv_obj_t* create_number_button(lv_obj_t* parent, const char* text, int type) {
     lv_obj_t* btn = lv_btn_create(parent);
     lv_obj_set_size(btn, 50, 30);

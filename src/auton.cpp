@@ -4,10 +4,11 @@
 #include <vector>
 #include <cstdio>
 
-bool running = false; // Flag to indicate if the auton is currently running
+bool autonrunning = false; // Flag to indicate if the auton is currently running
 
 
 void skills_auton() {
+    autonrunning = true; // Set the running flag to true
     printf("Running Skills Auton!\n");
     // Skills auton
     chassis.moveToPose(2,45,-90,10000);
@@ -16,6 +17,7 @@ void skills_auton() {
     descore.set_value(true);
     pros::delay(100);
     chassis.moveToPose(-7,45,-90,10000);
+    autonrunning = false; // Set the running flag to false after the auton is complete
 }
 
 std::vector<std::string> load_auton_for_runtxt(const std::string& filename) {
@@ -49,8 +51,7 @@ std::vector<std::string> load_auton_for_runtxt(const std::string& filename) {
 
 
 void runauton(void) {
-    if (running) return; // Prevent running multiple autons simultaneously
-    running = true; // Set the running flag to true
+    if (autonrunning) return; // Prevent running multiple autons simultaneously
     chassis.setPose(0, 0, 0); // Set position to x:0, y:0, heading:0
     if (selected_corner == -1 || selected_slot == -1) {
         printf("No auton selected!\n");
@@ -62,10 +63,10 @@ void runauton(void) {
         runtxtauton(auton_lines);
     }
     pros::delay(100); // Allow Robot to stabilize
-    running = false; // Set the running flag to false after the auton is complete
 }
 
 void runtxtauton(const std::vector<std::string>& list) {
+    autonrunning = true; // Set the running flag to true
     chassis.setPose(0, 0, 0); // Reset pose
     if (list.empty()) {
         printf("Auton list is empty!\n");
@@ -104,9 +105,9 @@ void runtxtauton(const std::vector<std::string>& list) {
                 double speed = std::stod(tokens[2]);
                 printf("Spin (%s): speed=%f\n", device.c_str(), speed);
 
-                if (device == "a") Intake1.move(speed);
-                else if (device == "b") Intake2.move(speed);
-                else if (device == "c") Intake3.move(speed);
+                if (device == "a") {Intake1.move_velocity(speed); printf("Intake1 speed set to %f\n", speed);}
+                else if (device == "b") Intake2.move_velocity(speed);
+                else if (device == "c") Intake3.move_velocity(speed);
                 else printf("Unknown motor device: %s\n", device.c_str());
                 break;
             }
@@ -130,6 +131,7 @@ void runtxtauton(const std::vector<std::string>& list) {
 
                 if (device == "d") descore.set_value(value);
                 else if (device == "w") weedwacker.set_value(value);
+                else if (device == "b") ballblock.set_value(value);
                 else printf("Unknown piston device: %s\n", device.c_str());
                 break;
             }
@@ -138,4 +140,5 @@ void runtxtauton(const std::vector<std::string>& list) {
                 break;
         }
     }
+    autonrunning = false; // Set the running flag to false after the auton is complete
 }
