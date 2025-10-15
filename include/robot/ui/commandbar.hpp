@@ -105,50 +105,7 @@ public:
         cmd.build();
         return cmd;
     }
-
-    // === Serialize (convert LVGL state -> string line) ===
-    std::string serialize() const {
-        if (type == "move") {
-            lv_obj_t* btnX = lv_obj_get_child(bar, 1);
-            lv_obj_t* btnY = lv_obj_get_child(bar, 2);
-            lv_obj_t* btnDir = lv_obj_get_child(bar, 4);
-            const char* x = lv_label_get_text(lv_obj_get_child(btnX, 0));
-            const char* y = lv_label_get_text(lv_obj_get_child(btnY, 0));
-            const char* dir = lv_label_get_text(lv_obj_get_child(btnDir, 0));
-            return "m,r," + std::string(x) + "," + std::string(y) + "," + std::string(dir);
-        }
-        else if (type == "wait") {
-            lv_obj_t* btn = lv_obj_get_child(bar, 1);
-            const char* sec = lv_label_get_text(lv_obj_get_child(btn, 0));
-            return "w,r," + std::string(sec);
-        }
-        else if (type == "motor") {
-            lv_obj_t* dropdown = lv_obj_get_child(bar, 1);
-            lv_obj_t* btn = lv_obj_get_child(bar, 3);
-            const char* speed = lv_label_get_text(lv_obj_get_child(btn, 0));
-            char buffer[32];
-            lv_dropdown_get_selected_str(dropdown, buffer, sizeof(buffer));
-            char motor_letter = ' ';
-            if (strcmp(buffer, "Intake Top") == 0) motor_letter = 'a';
-            else if (strcmp(buffer, "Intake Middle") == 0) motor_letter = 'b';
-            else if (strcmp(buffer, "Intake Bottom") == 0) motor_letter = 'c';
-            return "s," + std::string(1, motor_letter) + "," + std::string(speed);
-        }
-        else if (type == "piston") {
-            lv_obj_t* dropdown = lv_obj_get_child(bar, 1);
-            lv_obj_t* sw = lv_obj_get_child(bar, 3);
-            char buffer[32];
-            lv_dropdown_get_selected_str(dropdown, buffer, sizeof(buffer));
-            char piston_letter = ' ';
-            if (strcmp(buffer, "Descore") == 0) piston_letter = 'd';
-            else if (strcmp(buffer, "Weedwacker") == 0) piston_letter = 'w';
-            else if (strcmp(buffer, "Ball Block") == 0) piston_letter = 'b';
-            int state = lv_obj_has_state(sw, LV_STATE_CHECKED) ? 1 : 0;
-            return "p," + std::string(1, piston_letter) + "," + std::to_string(state);
-        }
-        return "";
-    }
-
+    
     // === Deserialize (load string data -> LVGL UI) ===
     void deserialize(const std::string& line) {
         if (line.size() < 3) return; // prevent out-of-range
@@ -200,6 +157,7 @@ public:
             if (dropdown) {
                 if (piston_letter == 'd') lv_dropdown_set_selected(dropdown, 0);
                 else if (piston_letter == 'w') lv_dropdown_set_selected(dropdown, 1);
+                else if (piston_letter == 'b') lv_dropdown_set_selected(dropdown, 2);
             }
             if (sw) {
                 if (state_str == "1") lv_obj_add_state(sw, LV_STATE_CHECKED);
