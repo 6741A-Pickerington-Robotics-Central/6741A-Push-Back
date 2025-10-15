@@ -82,10 +82,10 @@ void runtxtauton(const std::vector<std::string>& list) {
             tokens.push_back(token);
         }
         if (tokens.empty()) continue;
-        char type = tokens[0][0];        // 'm', 's', 'w', 'p'
+        char type = tokens[0][0];        // 'M', 'P', 's', 'w', 'p'
         std::string device = (tokens.size() > 1) ? tokens[1] : "";
         switch (type) {
-            case 'm': {
+            case 'M': {
                 if (tokens.size() < 5) {
                     printf("Error: malformed move command: %s\n", line.c_str());
                     break;
@@ -93,8 +93,21 @@ void runtxtauton(const std::vector<std::string>& list) {
                 double x = std::stod(tokens[2]);
                 double y = std::stod(tokens[3]);
                 double theta = std::stod(tokens[4]);
-                printf("Move: x=%f, y=%f, theta=%f\n", x, y, theta);
-                chassis.moveToPose(x, y, theta, 1000);
+                bool forward = (tokens[5] == "1");
+                printf("Move: x=%f, y=%f, theta=%f, forward:%d\n", x, y, theta, forward);
+                chassis.moveToPose(x, y, theta, 1000, {.forward = forward});
+                break;
+            }
+            case 'P': {
+                if (tokens.size() < 5) {
+                    printf("Error: malformed move command: %s\n", line.c_str());
+                    break;
+                }
+                double x = std::stod(tokens[2]);
+                double y = std::stod(tokens[3]);
+                bool forward = (tokens[5] == "1");
+                printf("Move: x=%f, y=%f, forward=%d\n", x, y, forward);
+                chassis.movetopoint(x, y, 1000, {.forward = forward});
                 break;
             }
             case 's': {

@@ -22,64 +22,68 @@ struct CommandData {
     std::string line; // serialized command
 };
 
-// Return a serialized string for the lv_obj_t* bar
-    std::string serialize_bar(lv_obj_t* bar) {
-        if (!bar) return "";
-        printf("Serializing bar...\n");
-        const char* type = static_cast<const char*>(lv_obj_get_user_data(bar));
-        // Determine type by background color
-        //lv_color_t bg = lv_obj_get_style_bg_color(bar, 0);
-        //uint32_t bg32 = lv_color_to32(bg);
-        //uint32_t yellow = lv_color_to32(lv_palette_main(LV_PALETTE_YELLOW));
-        //uint32_t green  = lv_color_to32(lv_palette_main(LV_PALETTE_GREEN));
-        //uint32_t blue   = lv_color_to32(lv_palette_main(LV_PALETTE_BLUE));
-        //uint32_t red    = lv_color_to32(lv_palette_main(LV_PALETTE_RED));
-        //if (bg32 == yellow) {
-        if (strcmp(type, "move") == 0) {
-            // move: label(Move to x,y:), btnX, btnY, label(dir:), btnDir
-            lv_obj_t* btnX = lv_obj_get_child(bar, 1);
-            lv_obj_t* btnY = lv_obj_get_child(bar, 2);
-            lv_obj_t* btnDir = lv_obj_get_child(bar, 4);
-            const char* x = lv_label_get_text(lv_obj_get_child(btnX, 0));
-            const char* y = lv_label_get_text(lv_obj_get_child(btnY, 0));
-            const char* dir = lv_label_get_text(lv_obj_get_child(btnDir, 0));
-            return "m,r," + std::string(x) + "," + std::string(y) + "," + std::string(dir);
-        } else if (strcmp(type, "wait") == 0) {
-        //} else if (bg32 == green) {
-            // wait: label(Wait:), btnSec, label(sec)
-            lv_obj_t* btn = lv_obj_get_child(bar, 1);
-            const char* sec = lv_label_get_text(lv_obj_get_child(btn, 0));
-            return "w,r," + std::string(sec);
-        }else if (strcmp(type, "motor") == 0) {
-        //} else if (bg32 == blue) {
-            // motor: label(Spin), dropdown, label(at), btnSpeed
-            lv_obj_t* dropdown = lv_obj_get_child(bar, 1);
-            lv_obj_t* btn = lv_obj_get_child(bar, 3);
-            char buffer[32];
-            lv_dropdown_get_selected_str(dropdown, buffer, sizeof(buffer));
-            char motor_letter = ' ';
-            if (strcmp(buffer, "Intake Top") == 0) motor_letter = 'a';
-            else if (strcmp(buffer, "Intake Middle") == 0) motor_letter = 'b';
-            else if (strcmp(buffer, "Intake Bottom") == 0) motor_letter = 'c';
-            const char* speed = lv_label_get_text(lv_obj_get_child(btn, 0));
-            return "s," + std::string(1, motor_letter) + "," + std::string(speed);
-        } else if (strcmp(type, "piston") == 0) {
-        //} else if (bg32 == red) {
-            // piston: label, dropdown, label "to", switch
-            lv_obj_t* dropdown = lv_obj_get_child(bar, 1);
-            lv_obj_t* sw = lv_obj_get_child(bar, 3);
-            char buffer[32];
-            lv_dropdown_get_selected_str(dropdown, buffer, sizeof(buffer));
-            char piston_letter = ' ';
-            if (strcmp(buffer, "Descore") == 0) piston_letter = 'd';
-            else if (strcmp(buffer, "Weedwacker") == 0) piston_letter = 'w';
-            else if (strcmp(buffer, "Ball Block") == 0) piston_letter = 'b';
-            int state = lv_obj_has_state(sw, LV_STATE_CHECKED) ? 1 : 0;
-            printf("Piston save State: %d\n", state);
-            return "p," + std::string(1, piston_letter) + "," + std::to_string(state);
-        }
-        return "";
+// Serialize an lv_obj_t* bar to a string
+std::string serialize_bar(lv_obj_t* bar) {
+    if (!bar) return "";
+    const char* type = static_cast<const char*>(lv_obj_get_user_data(bar));
+    if (!type) return "";
+    if (strcmp(type, "movetopose") == 0) {
+        // movetopose/movetopoint: label(Move to x,y:), btnX, btnY, label(dir:), btnDir, maybe toggle
+        lv_obj_t* btnX = lv_obj_get_child(bar, 1);
+        lv_obj_t* btnY = lv_obj_get_child(bar, 2);
+        lv_obj_t* btnDir = lv_obj_get_child(bar, 4);
+        const char* x = lv_label_get_text(lv_obj_get_child(btnX, 0));
+        const char* y = lv_label_get_text(lv_obj_get_child(btnY, 0));
+        const char* dir = lv_label_get_text(lv_obj_get_child(btnDir, 0));
+        lv_obj_t* toggle = lv_obj_get_child(bar, 5);
+        int toggle_state = (lv_obj_has_state(toggle, LV_STATE_CHECKED)) ? 1 : 0;
+
+        return std::string("M") + ",r," + x + "," + y + "," + dir + "," + std::to_string(toggle_state);
+    } else if (strcmp(type, "movetopoint") == 0) {
+        // movetopose/movetopoint: label(Move to x,y:), btnX, btnY, label(dir:), btnDir, maybe toggle
+        lv_obj_t* btnX = lv_obj_get_child(bar, 1);
+        lv_obj_t* btnY = lv_obj_get_child(bar, 2);
+        lv_obj_t* btnDir = lv_obj_get_child(bar, 4);
+        const char* x = lv_label_get_text(lv_obj_get_child(btnX, 0));
+        const char* y = lv_label_get_text(lv_obj_get_child(btnY, 0));
+        lv_obj_t* toggle = lv_obj_get_child(bar, 5);
+        int toggle_state = (lv_obj_has_state(toggle, LV_STATE_CHECKED)) ? 1 : 0;
+
+        return std::string("P") + ",r," + x + "," + y + "," + dir + "," + std::to_string(toggle_state);
+    } else if (strcmp(type, "turn") == 0) {
+        // turn: label(Turn to dir:), btnDir
+        lv_obj_t* btnDir = lv_obj_get_child(bar, 1);
+        const char* dir = lv_label_get_text(lv_obj_get_child(btnDir, 0));
+        return "t,r," + std::string(dir);
+    } else if (strcmp(type, "wait") == 0) {
+        lv_obj_t* btn = lv_obj_get_child(bar, 1);
+        const char* sec = lv_label_get_text(lv_obj_get_child(btn, 0));
+        return "w,r," + std::string(sec);
+    } else if (strcmp(type, "motor") == 0) {
+        lv_obj_t* dropdown = lv_obj_get_child(bar, 1);
+        lv_obj_t* btn = lv_obj_get_child(bar, 3);
+        char buffer[32];
+        lv_dropdown_get_selected_str(dropdown, buffer, sizeof(buffer));
+        char motor_letter = ' ';
+        if (strcmp(buffer, "Intake Top") == 0) motor_letter = 'a';
+        else if (strcmp(buffer, "Intake Middle") == 0) motor_letter = 'b';
+        else if (strcmp(buffer, "Intake Bottom") == 0) motor_letter = 'c';
+        const char* speed = lv_label_get_text(lv_obj_get_child(btn, 0));
+        return "s," + std::string(1, motor_letter) + "," + std::string(speed);
+    } else if (strcmp(type, "piston") == 0) {
+        lv_obj_t* dropdown = lv_obj_get_child(bar, 1);
+        lv_obj_t* sw = lv_obj_get_child(bar, 3);
+        char buffer[32];
+        lv_dropdown_get_selected_str(dropdown, buffer, sizeof(buffer));
+        char piston_letter = ' ';
+        if (strcmp(buffer, "Descore") == 0) piston_letter = 'd';
+        else if (strcmp(buffer, "Weedwacker") == 0) piston_letter = 'w';
+        else if (strcmp(buffer, "Ball Block") == 0) piston_letter = 'b';
+        int state = lv_obj_has_state(sw, LV_STATE_CHECKED) ? 1 : 0;
+        return "p," + std::string(1, piston_letter) + "," + std::to_string(state);
     }
+    return "";
+}
 
 /**
  * @brief A command bar representing a single robot action.
@@ -117,31 +121,38 @@ public:
 
     // === Deserialize (load string data -> LVGL UI) ===
     void deserialize(const std::string& line) {
-        if (line.size() < 3) return; // prevent out-of-range
+        if (line.size() < 3) return;
 
-        if (type == "move") {
-            // Expected format: m,r,<x>,<y>,<dir>
-            size_t pos1 = line.find(',', 4);
-            size_t pos2 = (pos1 != std::string::npos) ? line.find(',', pos1 + 1) : std::string::npos;
-            size_t pos3 = (pos2 != std::string::npos) ? line.find(',', pos2 + 1) : std::string::npos;
-
-            if (pos1 == std::string::npos || pos2 == std::string::npos)
-                return; // malformed line, skip safely
-
-            std::string x = (line.size() > 4) ? line.substr(4, pos1 - 4) : "0";
-            std::string y = (pos2 > pos1 + 1) ? line.substr(pos1 + 1, pos2 - pos1 - 1) : "0";
-            std::string dir = (pos3 != std::string::npos && pos3 + 1 < line.size()) ? line.substr(pos2 + 1): "0";
-
-            setButtonText(1, x);
-            setButtonText(2, y);
-            setButtonText(4, dir);
+        if (type == "movetopose") {
+            std::vector<std::string> tokens = split(line, ',');
+            if (tokens.size() < 5) return;
+            setButtonText(1, tokens[2]);
+            setButtonText(2, tokens[3]);
+            setButtonText(4, tokens[4]);
+            lv_obj_t* toggle = lv_obj_get_child(bar, 5);
+            if (tokens[5] == "1") lv_obj_add_state(toggle, LV_STATE_CHECKED);
+            else lv_obj_clear_state(toggle, LV_STATE_CHECKED);
+        } else if (type == "movetopoint") {
+            std::vector<std::string> tokens = split(line, ',');
+            if (tokens.size() < 5) return;
+            setButtonText(1, tokens[2]);
+            setButtonText(2, tokens[3]);
+            lv_obj_t* toggle = lv_obj_get_child(bar, 5);
+            if (tokens[5] == "1") lv_obj_add_state(toggle, LV_STATE_CHECKED);
+            else lv_obj_clear_state(toggle, LV_STATE_CHECKED);
+        } else if (type == "turn") {
+            std::vector<std::string> tokens = split(line, ',');
+            if (tokens.size() < 3) return;
+            setButtonText(1, tokens[2]);
         } else if (type == "wait") {
-            std::string sec = (line.size() > 4) ? line.substr(4) : "0";
-            setButtonText(1, sec);
+            std::vector<std::string> tokens = split(line, ',');
+            if (tokens.size() < 3) return;
+            setButtonText(1, tokens[2]);
         } else if (type == "motor") {
-            if (line.size() < 4) return;
-            char motor_letter = line[2];
-            std::string speed = (line.size() > 4) ? line.substr(4) : "0";
+            std::vector<std::string> tokens = split(line, ',');
+            if (tokens.size() < 3) return;
+            char motor_letter = tokens[1][0];
+            std::string speed = tokens[2];
 
             lv_obj_t* dropdown = lv_obj_get_child(bar, 1);
             lv_obj_t* btn = lv_obj_get_child(bar, 3);
@@ -152,9 +163,10 @@ public:
             }
             if (btn) lv_label_set_text(lv_obj_get_child(btn, 0), speed.c_str());
         } else if (type == "piston") {
-            if (line.size() < 4) return;
-            char piston_letter = line[2];
-            std::string state_str = (line.size() > 4) ? line.substr(4) : "0";
+            std::vector<std::string> tokens = split(line, ',');
+            if (tokens.size() < 3) return;
+            char piston_letter = tokens[1][0];
+            std::string state_str = tokens[2];
 
             lv_obj_t* dropdown = lv_obj_get_child(bar, 1);
             lv_obj_t* sw = lv_obj_get_child(bar, 3);
@@ -172,21 +184,40 @@ public:
 private:
     // === UI builder based on type ===
     void build() {
-        if (type == "move") {
-            lv_obj_set_style_bg_color(bar, yellow, 0);
+        if (type == "movetopose") {
+            lv_obj_set_style_bg_color(bar, orange, 0);
             lv_label_set_text(lv_label_create(bar), "Move to x,y:");
             create_number_button(bar, "0", 0);
             create_number_button(bar, "0", 0);
             lv_label_set_text(lv_label_create(bar), "dir:");
             create_number_button(bar, "0", 2);
-        }
-        else if (type == "wait") {
+            lv_label_set_text(lv_label_create(bar), "Forward:");
+            lv_obj_t* toggle = lv_switch_create(bar);
+            lv_obj_add_event_cb(toggle, [](lv_event_t* e){
+                lv_obj_t* bar = lv_obj_get_parent(lv_event_get_target(e));
+                update_command_list_from_bar(bar);
+            }, LV_EVENT_VALUE_CHANGED, nullptr);
+        } else if (type == "movetopoint") {
+            lv_obj_set_style_bg_color(bar, yellow, 0);
+            lv_label_set_text(lv_label_create(bar), "Move to x,y:");
+            create_number_button(bar, "0", 0);
+            create_number_button(bar, "0", 0);
+            lv_label_set_text(lv_label_create(bar), "Forward:");
+            lv_obj_t* toggle = lv_switch_create(bar);
+            lv_obj_add_event_cb(toggle, [](lv_event_t* e){
+                lv_obj_t* bar = lv_obj_get_parent(lv_event_get_target(e));
+                update_command_list_from_bar(bar);
+            }, LV_EVENT_VALUE_CHANGED, nullptr);
+        } else if (type == "turn") {
+            lv_obj_set_style_bg_color(bar, teal, 0);
+            lv_label_set_text(lv_label_create(bar), "Turn to dir:");
+            create_number_button(bar, "0", 2);
+        } else if (type == "wait") {
             lv_obj_set_style_bg_color(bar, green, 0);
             lv_label_set_text(lv_label_create(bar), "Wait");
             create_number_button(bar, "0", 0);
             lv_label_set_text(lv_label_create(bar), "sec");
-        }
-        else if (type == "motor") {
+        } else if (type == "motor") {
             lv_obj_set_style_bg_color(bar, blue, 0);
             lv_label_set_text(lv_label_create(bar), "Spin");
             auto motor = lv_dropdown_create(bar);
@@ -197,8 +228,7 @@ private:
             }, LV_EVENT_VALUE_CHANGED, nullptr);
             lv_label_set_text(lv_label_create(bar), "at");
             create_number_button(bar, "0", 1);
-        }
-        else if (type == "piston") {
+        } else if (type == "piston") {
             lv_obj_set_style_bg_color(bar, red, 0);
             lv_label_set_text(lv_label_create(bar), "Toggle");
             auto piston = lv_dropdown_create(bar);
@@ -209,7 +239,6 @@ private:
                 lv_obj_t* bar = lv_obj_get_parent(lv_event_get_target(e));
                 update_command_list_from_bar(bar);
             }, LV_EVENT_VALUE_CHANGED, nullptr);
-        
             lv_obj_add_event_cb(toggle, [](lv_event_t* e){
                 lv_obj_t* bar = lv_obj_get_parent(lv_event_get_target(e));
                 update_command_list_from_bar(bar);
