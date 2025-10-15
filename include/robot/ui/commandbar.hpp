@@ -26,15 +26,17 @@ struct CommandData {
     std::string serialize_bar(lv_obj_t* bar) {
         if (!bar) return "";
         printf("Serializing bar...\n");
-        // Determine type by background color like your save_auton_event did
-        lv_color_t bg = lv_obj_get_style_bg_color(bar, 0);
-        uint32_t bg32 = lv_color_to32(bg);
-        uint32_t yellow = lv_color_to32(lv_palette_main(LV_PALETTE_YELLOW));
-        uint32_t green  = lv_color_to32(lv_palette_main(LV_PALETTE_GREEN));
-        uint32_t blue   = lv_color_to32(lv_palette_main(LV_PALETTE_BLUE));
-        uint32_t red    = lv_color_to32(lv_palette_main(LV_PALETTE_RED));
-        if (bg32 == yellow) {
-            // move: layout was: label, btnX, btnY, label(dir:), btnDir
+        const char* type = static_cast<const char*>(lv_obj_get_user_data(bar));
+        // Determine type by background color
+        //lv_color_t bg = lv_obj_get_style_bg_color(bar, 0);
+        //uint32_t bg32 = lv_color_to32(bg);
+        //uint32_t yellow = lv_color_to32(lv_palette_main(LV_PALETTE_YELLOW));
+        //uint32_t green  = lv_color_to32(lv_palette_main(LV_PALETTE_GREEN));
+        //uint32_t blue   = lv_color_to32(lv_palette_main(LV_PALETTE_BLUE));
+        //uint32_t red    = lv_color_to32(lv_palette_main(LV_PALETTE_RED));
+        //if (bg32 == yellow) {
+        if (strcmp(type, "move") == 0) {
+            // move: label(Move to x,y:), btnX, btnY, label(dir:), btnDir
             lv_obj_t* btnX = lv_obj_get_child(bar, 1);
             lv_obj_t* btnY = lv_obj_get_child(bar, 2);
             lv_obj_t* btnDir = lv_obj_get_child(bar, 4);
@@ -42,13 +44,15 @@ struct CommandData {
             const char* y = lv_label_get_text(lv_obj_get_child(btnY, 0));
             const char* dir = lv_label_get_text(lv_obj_get_child(btnDir, 0));
             return "m,r," + std::string(x) + "," + std::string(y) + "," + std::string(dir);
-        } else if (bg32 == green) {
-            // wait: label, btnSec, label sec
+        } else if (strcmp(type, "wait") == 0) {
+        //} else if (bg32 == green) {
+            // wait: label(Wait:), btnSec, label(sec)
             lv_obj_t* btn = lv_obj_get_child(bar, 1);
             const char* sec = lv_label_get_text(lv_obj_get_child(btn, 0));
             return "w,r," + std::string(sec);
-        } else if (bg32 == blue) {
-            // motor: label, dropdown, label "at", btnSpeed
+        }else if (strcmp(type, "motor") == 0) {
+        //} else if (bg32 == blue) {
+            // motor: label(Spin), dropdown, label(at), btnSpeed
             lv_obj_t* dropdown = lv_obj_get_child(bar, 1);
             lv_obj_t* btn = lv_obj_get_child(bar, 3);
             char buffer[32];
@@ -59,7 +63,8 @@ struct CommandData {
             else if (strcmp(buffer, "Intake Bottom") == 0) motor_letter = 'c';
             const char* speed = lv_label_get_text(lv_obj_get_child(btn, 0));
             return "s," + std::string(1, motor_letter) + "," + std::string(speed);
-        } else if (bg32 == red) {
+        } else if (strcmp(type, "piston") == 0) {
+        //} else if (bg32 == red) {
             // piston: label, dropdown, label "to", switch
             lv_obj_t* dropdown = lv_obj_get_child(bar, 1);
             lv_obj_t* sw = lv_obj_get_child(bar, 3);
@@ -95,6 +100,9 @@ public:
         CommandBar cmd;
         cmd.type = type;
         cmd.bar = lv_obj_create(parent);
+        // Store type in user data for serialization
+        char* heapType = strdup(type.c_str());
+        lv_obj_set_user_data(cmd.bar, heapType);
 
         lv_obj_set_size(cmd.bar, 370, 55);
         lv_obj_set_flex_flow(cmd.bar, LV_FLEX_FLOW_ROW);
@@ -122,19 +130,15 @@ public:
 
             std::string x = (line.size() > 4) ? line.substr(4, pos1 - 4) : "0";
             std::string y = (pos2 > pos1 + 1) ? line.substr(pos1 + 1, pos2 - pos1 - 1) : "0";
-            std::string dir = (pos3 != std::string::npos && pos3 + 1 < line.size())
-                                ? line.substr(pos2 + 1)
-                                : "0";
+            std::string dir = (pos3 != std::string::npos && pos3 + 1 < line.size()) ? line.substr(pos2 + 1): "0";
 
             setButtonText(1, x);
             setButtonText(2, y);
             setButtonText(4, dir);
-        }
-        else if (type == "wait") {
+        } else if (type == "wait") {
             std::string sec = (line.size() > 4) ? line.substr(4) : "0";
             setButtonText(1, sec);
-        }
-        else if (type == "motor") {
+        } else if (type == "motor") {
             if (line.size() < 4) return;
             char motor_letter = line[2];
             std::string speed = (line.size() > 4) ? line.substr(4) : "0";
@@ -147,8 +151,7 @@ public:
                 else if (motor_letter == 'c') lv_dropdown_set_selected(dropdown, 2);
             }
             if (btn) lv_label_set_text(lv_obj_get_child(btn, 0), speed.c_str());
-        }
-        else if (type == "piston") {
+        } else if (type == "piston") {
             if (line.size() < 4) return;
             char piston_letter = line[2];
             std::string state_str = (line.size() > 4) ? line.substr(4) : "0";
