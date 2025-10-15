@@ -22,66 +22,66 @@ struct CommandData {
     std::string line; // serialized command
 };
 
-// Return a serialized string for the lv_obj_t* bar (same format as CommandBar::serialize)
-
-static std::string serialize_bar(lv_obj_t* bar) {
-    if (!bar) return "";
-    printf("Serializing bar...\n");
-    // Determine type by background color like your save_auton_event did
-    lv_color_t bg = lv_obj_get_style_bg_color(bar, 0);
-    uint32_t bg32 = lv_color_to32(bg);
-    uint32_t yellow = lv_color_to32(lv_palette_main(LV_PALETTE_YELLOW));
-    uint32_t green  = lv_color_to32(lv_palette_main(LV_PALETTE_GREEN));
-    uint32_t blue   = lv_color_to32(lv_palette_main(LV_PALETTE_BLUE));
-    uint32_t red    = lv_color_to32(lv_palette_main(LV_PALETTE_RED));
-    if (bg32 == yellow) {
-        // move: layout was: label, btnX, btnY, label(dir:), btnDir
-        lv_obj_t* btnX = lv_obj_get_child(bar, 1);
-        lv_obj_t* btnY = lv_obj_get_child(bar, 2);
-        lv_obj_t* btnDir = lv_obj_get_child(bar, 4);
-        const char* x = lv_label_get_text(lv_obj_get_child(btnX, 0));
-        const char* y = lv_label_get_text(lv_obj_get_child(btnY, 0));
-        const char* dir = lv_label_get_text(lv_obj_get_child(btnDir, 0));
-        return "m,r," + std::string(x) + "," + std::string(y) + "," + std::string(dir);
-    } else if (bg32 == green) {
-        // wait: label, btnSec, label sec
-        lv_obj_t* btn = lv_obj_get_child(bar, 1);
-        const char* sec = lv_label_get_text(lv_obj_get_child(btn, 0));
-        return "w,r," + std::string(sec);
-    } else if (bg32 == blue) {
-        // motor: label, dropdown, label "at", btnSpeed
-        lv_obj_t* dropdown = lv_obj_get_child(bar, 1);
-        lv_obj_t* btn = lv_obj_get_child(bar, 3);
-        char buffer[32];
-        lv_dropdown_get_selected_str(dropdown, buffer, sizeof(buffer));
-        char motor_letter = ' ';
-        if (strcmp(buffer, "Intake Top") == 0) motor_letter = 'a';
-        else if (strcmp(buffer, "Intake Middle") == 0) motor_letter = 'b';
-        else if (strcmp(buffer, "Intake Bottom") == 0) motor_letter = 'c';
-        const char* speed = lv_label_get_text(lv_obj_get_child(btn, 0));
-        return "s," + std::string(1, motor_letter) + "," + std::string(speed);
-    } else if (bg32 == red) {
-        // piston: label, dropdown, label "to", switch
-        lv_obj_t* dropdown = lv_obj_get_child(bar, 1);
-        lv_obj_t* sw = lv_obj_get_child(bar, 3);
-        char buffer[32];
-        lv_dropdown_get_selected_str(dropdown, buffer, sizeof(buffer));
-        char piston_letter = ' ';
-        if (strcmp(buffer, "Descore") == 0) piston_letter = 'd';
-        else if (strcmp(buffer, "Weedwacker") == 0) piston_letter = 'w';
-        else if (strcmp(buffer, "Ball Block") == 0) piston_letter = 'b';
-        int state = lv_obj_has_state(sw, LV_STATE_CHECKED) ? 1 : 0;
-        printf("Piston save State: %d\n", state);
-        return "p," + std::string(1, piston_letter) + "," + std::to_string(state);
+// Return a serialized string for the lv_obj_t* bar
+    std::string serialize_bar(lv_obj_t* bar) {
+        if (!bar) return "";
+        printf("Serializing bar...\n");
+        // Determine type by background color like your save_auton_event did
+        lv_color_t bg = lv_obj_get_style_bg_color(bar, 0);
+        uint32_t bg32 = lv_color_to32(bg);
+        uint32_t yellow = lv_color_to32(lv_palette_main(LV_PALETTE_YELLOW));
+        uint32_t green  = lv_color_to32(lv_palette_main(LV_PALETTE_GREEN));
+        uint32_t blue   = lv_color_to32(lv_palette_main(LV_PALETTE_BLUE));
+        uint32_t red    = lv_color_to32(lv_palette_main(LV_PALETTE_RED));
+        if (bg32 == yellow) {
+            // move: layout was: label, btnX, btnY, label(dir:), btnDir
+            lv_obj_t* btnX = lv_obj_get_child(bar, 1);
+            lv_obj_t* btnY = lv_obj_get_child(bar, 2);
+            lv_obj_t* btnDir = lv_obj_get_child(bar, 4);
+            const char* x = lv_label_get_text(lv_obj_get_child(btnX, 0));
+            const char* y = lv_label_get_text(lv_obj_get_child(btnY, 0));
+            const char* dir = lv_label_get_text(lv_obj_get_child(btnDir, 0));
+            return "m,r," + std::string(x) + "," + std::string(y) + "," + std::string(dir);
+        } else if (bg32 == green) {
+            // wait: label, btnSec, label sec
+            lv_obj_t* btn = lv_obj_get_child(bar, 1);
+            const char* sec = lv_label_get_text(lv_obj_get_child(btn, 0));
+            return "w,r," + std::string(sec);
+        } else if (bg32 == blue) {
+            // motor: label, dropdown, label "at", btnSpeed
+            lv_obj_t* dropdown = lv_obj_get_child(bar, 1);
+            lv_obj_t* btn = lv_obj_get_child(bar, 3);
+            char buffer[32];
+            lv_dropdown_get_selected_str(dropdown, buffer, sizeof(buffer));
+            char motor_letter = ' ';
+            if (strcmp(buffer, "Intake Top") == 0) motor_letter = 'a';
+            else if (strcmp(buffer, "Intake Middle") == 0) motor_letter = 'b';
+            else if (strcmp(buffer, "Intake Bottom") == 0) motor_letter = 'c';
+            const char* speed = lv_label_get_text(lv_obj_get_child(btn, 0));
+            return "s," + std::string(1, motor_letter) + "," + std::string(speed);
+        } else if (bg32 == red) {
+            // piston: label, dropdown, label "to", switch
+            lv_obj_t* dropdown = lv_obj_get_child(bar, 1);
+            lv_obj_t* sw = lv_obj_get_child(bar, 3);
+            char buffer[32];
+            lv_dropdown_get_selected_str(dropdown, buffer, sizeof(buffer));
+            char piston_letter = ' ';
+            if (strcmp(buffer, "Descore") == 0) piston_letter = 'd';
+            else if (strcmp(buffer, "Weedwacker") == 0) piston_letter = 'w';
+            else if (strcmp(buffer, "Ball Block") == 0) piston_letter = 'b';
+            int state = lv_obj_has_state(sw, LV_STATE_CHECKED) ? 1 : 0;
+            printf("Piston save State: %d\n", state);
+            return "p," + std::string(1, piston_letter) + "," + std::to_string(state);
+        }
+        return "";
     }
-    return "";
-}
+
 /**
  * @brief A command bar representing a single robot action.
  *
  * This class encapsulates the LVGL objects and logic for a command bar,
  * which can represent different types of robot commands such as move, wait,
- * motor control, or piston control. It provides methods to create, serialize,
+ * motor control, or piston control. It provides methods to create 
  * and deserialize the command bar state.
  */
 class CommandBar {
@@ -89,6 +89,7 @@ public:
     lv_obj_t* bar;        // Root LVGL object for this command
     std::string type;     // "move", "wait", "motor", or "piston"
 
+    
     // === Factory ===
     static CommandBar create(lv_obj_t* parent, const std::string& type) {
         CommandBar cmd;
@@ -105,7 +106,7 @@ public:
         cmd.build();
         return cmd;
     }
-    
+
     // === Deserialize (load string data -> LVGL UI) ===
     void deserialize(const std::string& line) {
         if (line.size() < 3) return; // prevent out-of-range
