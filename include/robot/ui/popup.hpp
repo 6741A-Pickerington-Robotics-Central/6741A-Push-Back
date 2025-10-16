@@ -420,7 +420,9 @@ private:
     CommandData cmd;
     cmd.type = payload->type;
     // Fill default serialized line with zeros so it doesn’t get discarded
-    if (cmd.type == "move") cmd.line = "m,r,0,0,0";
+    if (cmd.type == "movetopose") cmd.line = "M,r,0,0,0";
+    else if (cmd.type == "movetopoint") cmd.line = "P,r,0,0,0";
+    else if (cmd.type == "turn") cmd.line = "t,r,0";
     else if (cmd.type == "wait") cmd.line = "w,r,0";
     else if (cmd.type == "motor") cmd.line = "s,a,0";
     else if (cmd.type == "piston") cmd.line = "p,d,0";
@@ -463,25 +465,29 @@ public:
         }
         lv_obj_t* parent = lv_scr_act();
         popup = lv_obj_create(parent);
-        lv_obj_set_size(popup, 160, 190);
+        lv_obj_set_size(popup, 320, 190); //160
         lv_obj_clear_flag(popup, LV_OBJ_FLAG_SCROLLABLE);
-        lv_obj_align(popup, LV_ALIGN_CENTER, 80, 0);
+        lv_obj_align(popup, LV_ALIGN_CENTER, 40, 0); //80
         lv_obj_set_style_bg_color(popup, purple, 0);
         lv_obj_set_style_border_width(popup, 0, 0);
 
-        auto make_button = [&](const char* label, const char* type, int y) {
+        auto make_button = [&](const char* label, const char* type, int x, int y) {
             lv_obj_t* btn = lv_btn_create(popup);
             lv_obj_set_size(btn, 140, 35);
-            lv_obj_align(btn, LV_ALIGN_TOP_MID, 0, y);
+            lv_obj_align(btn, LV_ALIGN_TOP_MID, x, y);
             lv_obj_add_event_cb(btn, add_command_event, LV_EVENT_CLICKED, (void*)type);
             lv_obj_t* lbl = lv_label_create(btn);
             lv_label_set_text(lbl, label);
             lv_obj_center(lbl);
         };
-        make_button("Move",  "move",  0);
-        make_button("Motor", "motor", 45);
-        make_button("Wait",  "wait",  90);
-        make_button("Piston",  "piston",  135);
+        make_button("", "", 0, 0);
+        make_button("Motor", "motor", 0, 45);
+        make_button("Wait", "wait", 0, 90);
+        make_button("Piston", "piston", 0, 135);
+        make_button("Move To Pos",  "movetopos", 0, 0);
+        make_button("Move To Point", "movetopose", 0, 45);
+        make_button("Turn To",  "turn", 0, 90);
+        make_button(" ", " ", 0, 135);
     }
 };
 

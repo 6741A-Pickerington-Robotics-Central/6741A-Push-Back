@@ -33,7 +33,7 @@ std::vector<std::string> load_auton_for_runtxt(const std::string& filename) {
         if (line.empty()) continue;
         // Check if line starts with a recognized command
         char type = line[0];
-        if (type == 'm' || type == 's' || type == 'w' || type == 'p') {
+        if (type == 'M' || type == 'P'|| type == 't' || type == 's' || type == 'w' || type == 'p') {
             // Basic validation: check commas exist
             size_t comma_count = std::count(line.begin(), line.end(), ',');
             if (comma_count >= 2) { // m,r,0,0,0 has 4 commas
@@ -93,9 +93,11 @@ void runtxtauton(const std::vector<std::string>& list) {
                 double x = std::stod(tokens[2]);
                 double y = std::stod(tokens[3]);
                 double theta = std::stod(tokens[4]);
-                bool forward = (tokens[5] == "1");
-                printf("Move: x=%f, y=%f, theta=%f, forward:%d\n", x, y, theta, forward);
-                chassis.moveToPose(x, y, theta, 1000, {.forward = forward});
+                bool goforward = (tokens[5] == "1");
+                printf("Move: x=%f, y=%f, theta=%f, forward:%d\n", x, y, theta, goforward);
+                lemlib::MoveToPoseParams poseParams = {};
+                poseParams.forwards = goforward;
+                chassis.moveToPose(x, y, theta, 1000, poseParams);
                 break;
             }
             case 'P': {
@@ -105,9 +107,21 @@ void runtxtauton(const std::vector<std::string>& list) {
                 }
                 double x = std::stod(tokens[2]);
                 double y = std::stod(tokens[3]);
-                bool forward = (tokens[5] == "1");
-                printf("Move: x=%f, y=%f, forward=%d\n", x, y, forward);
-                chassis.movetopoint(x, y, 1000, {.forward = forward});
+                bool goforward = (tokens[5] == "1");
+                printf("Move: x=%f, y=%f, forward=%d\n", x, y, goforward);
+                lemlib::MoveToPointParams pointParams = {};
+                pointParams.forwards = goforward;
+                chassis.moveToPoint(x, y, 1000, pointParams);
+                break;
+            }
+            case 't': {
+                if (tokens.size() < 3) {
+                    printf("Error: malformed turn command: %s\n", line.c_str());
+                    break;
+                }
+                double theta = std::stod(tokens[2]);
+                printf("Turn: theta=%f\n", theta);
+                chassis.turnToHeading(theta, 1000);
                 break;
             }
             case 's': {

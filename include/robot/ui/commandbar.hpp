@@ -49,7 +49,7 @@ std::string serialize_bar(lv_obj_t* bar) {
         lv_obj_t* toggle = lv_obj_get_child(bar, 5);
         int toggle_state = (lv_obj_has_state(toggle, LV_STATE_CHECKED)) ? 1 : 0;
 
-        return std::string("P") + ",r," + x + "," + y + "," + dir + "," + std::to_string(toggle_state);
+        return std::string("P") + ",r," + x + "," + y + "," + std::to_string(toggle_state);
     } else if (strcmp(type, "turn") == 0) {
         // turn: label(Turn to dir:), btnDir
         lv_obj_t* btnDir = lv_obj_get_child(bar, 1);

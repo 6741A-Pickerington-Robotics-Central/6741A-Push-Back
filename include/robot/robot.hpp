@@ -35,7 +35,6 @@ extern bool descoreState; // State of the weedwacker
 extern int descoreCooldown; // Cooldown timer for weedwacker toggle
 extern bool ballblockstate; // State of the ball block
 
-
 // Selected auton vars
 extern int selected_corner;  // 0=Red Left, 1=Red Right, 2=Blue Left, 3=Blue Right
 extern int selected_slot;  // 0,1,2
