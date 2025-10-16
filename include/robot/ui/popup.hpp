@@ -484,8 +484,8 @@ public:
         make_button("Motor", "motor", 80, 45);
         make_button("Wait", "wait", 80, 90);
         make_button("Piston", "piston", 80, 135);
-        make_button("Move To Pos",  "movetopos", -80, 0);
-        make_button("Move To Point", "movetopose", -80, 45);
+        make_button("Move To Pos",  "movetopose", -80, 0);
+        make_button("Move To Point", "movetopoint", -80, 45);
         make_button("Turn To",  "turn", -80, 90);
         make_button(" ", " ", -80, 135);
     }
