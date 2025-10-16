@@ -480,14 +480,14 @@ public:
             lv_label_set_text(lbl, label);
             lv_obj_center(lbl);
         };
-        make_button("", "", 0, 0);
-        make_button("Motor", "motor", 0, 45);
-        make_button("Wait", "wait", 0, 90);
-        make_button("Piston", "piston", 0, 135);
-        make_button("Move To Pos",  "movetopos", 0, 0);
-        make_button("Move To Point", "movetopose", 0, 45);
-        make_button("Turn To",  "turn", 0, 90);
-        make_button(" ", " ", 0, 135);
+        make_button("", "", 80, 0);
+        make_button("Motor", "motor", 80, 45);
+        make_button("Wait", "wait", 80, 90);
+        make_button("Piston", "piston", 80, 135);
+        make_button("Move To Pos",  "movetopos", -80, 0);
+        make_button("Move To Point", "movetopose", -80, 45);
+        make_button("Turn To",  "turn", -80, 90);
+        make_button(" ", " ", -80, 135);
     }
 };
 
