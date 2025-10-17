@@ -12,7 +12,7 @@ void skills_auton() {
     autonrunning = true; // Set the running flag to true
     printf("Running Skills Auton!\n");
     chassis.setPose(0,0,0);
-    chassis.moveToPose(10,35,45,10000,{.forwards = false});
+    chassis.moveToPoint(0,10,10000,{.forwards = true});
     // Skills auton
     //chassis.moveToPose(2,45,-90,10000);
     //pros::delay(1000);
@@ -53,7 +53,7 @@ std::vector<std::string> load_auton_for_runtxt(const std::string& filename) {
 }
 
 
-void runauton(void) {
+void runauton() {
     if (autonrunning) return; // Prevent running multiple autons simultaneously
     chassis.setPose(0, 0, 0); // Set position to x:0, y:0, heading:0
     if (selected_corner == -1 || selected_slot == -1) {
@@ -134,12 +134,21 @@ void runtxtauton(const std::vector<std::string>& list) {
                     break;
                 }
                 double speed = std::stod(tokens[2]);
-                printf("Spin (%s): speed=%f\n", device.c_str(), speed);
-
-                if (device == "a") {Intake1.move_velocity(speed); printf("Intake1 speed set to %f\n", speed);}
-                else if (device == "b") Intake2.move_velocity(speed);
-                else if (device == "c") Intake3.move_velocity(speed);
-                else printf("Unknown motor device: %s\n", device.c_str());
+                bool reverse = (tokens[3] == "1");
+                printf("Spin (%s): speed=%f Reversed:%d\n", device.c_str(), speed, reverse);
+                if (reverse == 0) {
+                    LOG_INFO("Spining a motor forward");
+                    if (device == "a") Intake1.move_velocity(speed);
+                    else if (device == "b") Intake2.move_velocity(speed);
+                    else if (device == "c") Intake3.move_velocity(speed);
+                    else printf("Unknown motor device: %s\n", device.c_str());
+                } else if (reverse == 1) {
+                    LOG_INFO("Spining a motor reverse");
+                    if (device == "a") Intake1.move_velocity(-speed);
+                    else if (device == "b") Intake2.move_velocity(-speed);
+                    else if (device == "c") Intake3.move_velocity(-speed);
+                    else printf("Unknown motor device: %s\n", device.c_str());
+                }
                 break;
             }
             case 'w': {

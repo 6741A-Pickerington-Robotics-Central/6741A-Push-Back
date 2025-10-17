@@ -100,8 +100,10 @@ std::string serialize_bar(lv_obj_t* bar) {
             else if (strcmp(buffer, "Intake Middle") == 0) motor_letter = 'b';
             else if (strcmp(buffer, "Intake Bottom") == 0) motor_letter = 'c';
             const char* speed = lv_label_get_text(lv_obj_get_child(btn, 0));
+            lv_obj_t* toggle = lv_obj_get_child(bar, 4);
+            int toggle_state = lv_obj_has_state(toggle, LV_STATE_CHECKED) ? 1 : 0;
             LOG_INFO("Serialized A Motor Command");
-            return "s," + std::string(1, motor_letter) + "," + std::string(speed);
+            return "s," + std::string(1, motor_letter) + "," + std::string(speed) + "," + std::to_string(toggle_state);
         }
         case CommandType::Piston: {
             lv_obj_t* dropdown = lv_obj_get_child(bar, 1);
@@ -236,6 +238,9 @@ public:
                 else if (motor_letter == 'c') lv_dropdown_set_selected(dropdown, 2);
             }
             if (btn) lv_label_set_text(lv_obj_get_child(btn, 0), speed.c_str());
+            lv_obj_t* toggle = lv_obj_get_child(bar, 4);
+            if (tokens[3] == "1") lv_obj_add_state(toggle, LV_STATE_CHECKED);
+            else lv_obj_clear_state(toggle, LV_STATE_CHECKED);
         } else if (type == "piston") {
             std::vector<std::string> tokens = split(line, ',');
             if (tokens.size() < 3) return;
@@ -304,6 +309,11 @@ private:
             }, LV_EVENT_VALUE_CHANGED, nullptr);
             lv_label_set_text(lv_label_create(bar), "at");
             create_number_button(bar, "0", 1);
+            lv_obj_t* toggle = lv_switch_create(bar);
+            lv_obj_add_event_cb(toggle, [](lv_event_t* e){
+                lv_obj_t* bar = lv_obj_get_parent(lv_event_get_target(e));
+                update_command_list_from_bar(bar);
+            }, LV_EVENT_VALUE_CHANGED, nullptr);
         } else if (type == "piston") {
             lv_obj_set_style_bg_color(bar, red, 0);
             lv_label_set_text(lv_label_create(bar), "Toggle");

@@ -21,6 +21,7 @@ std::string get_auton_file_path();
 void runtxtauton(const std::vector<std::string>& list);
 std::vector<std::string> load_auton_for_runtxt(const std::string& filename);
 void screenTaskFunction();
+void runauton();
 
 //extern std::vector<Device> robotMotors;
 extern lemlib::Chassis chassis;

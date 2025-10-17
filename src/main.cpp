@@ -17,11 +17,7 @@ void initialize() {
 }
 
 void autonomous() {
-  //runauton();
-  //chassis.setPose(0, 0, 0); // Set position to x:0, y:0, heading:0
-  //chassis.moveToPose(50, 50, 90, 10000);
-  //pros::delay(300);
-  //chassis.moveToPose(0, 0, 0, 10000, {.forwards = false});
+    runauton();
 }
 
 void opcontrol() {
@@ -37,7 +33,7 @@ void opcontrol() {
                 if (ballblockstate)
                 {
                     Intake2.move_velocity(170);
-                    Intake3.move_velocity(-200);
+                    Intake3.move_velocity(-190);
                 } else {
                     Intake2.move_velocity(200);
                     Intake3.move_velocity(-200);

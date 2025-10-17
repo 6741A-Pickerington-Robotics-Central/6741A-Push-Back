@@ -530,6 +530,8 @@ lv_obj_t* create_number_button(lv_obj_t* parent, const char* text, int type) {
     lv_obj_t* lbl = lv_label_create(btn);
     lv_label_set_text(lbl, text);
     lv_obj_center(lbl);
+    lv_obj_set_style_bg_color(btn, lv_palette_main(LV_PALETTE_GREY), 0);
+    lv_obj_set_style_bg_opa(btn, LV_OPA_COVER, 0);
 
     return btn;
 }

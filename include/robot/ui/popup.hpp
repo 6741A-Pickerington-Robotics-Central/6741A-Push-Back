@@ -14,6 +14,7 @@ void render_visible_range();
 void ensure_selected_visible();
 extern int selected_index;
 extern std::vector<CommandData> command_list;
+lv_obj_t* modal;
 
 /**
  * @brief Popup for setting any number.
@@ -39,6 +40,15 @@ private:
         const char* old = lv_label_get_text(display_label);
         if (!strchr(old, '.')) {
             std::string updated = std::string(old) + ".";
+            lv_label_set_text(display_label, updated.c_str());
+        }
+    }
+
+    static void minus_key_event(lv_event_t* e) {
+        lv_obj_t* display_label = (lv_obj_t*)lv_event_get_user_data(e);
+        const char* old = lv_label_get_text(display_label);
+        if (!strchr(old, '-')) {
+            std::string updated = std::string(old) + "-";
             lv_label_set_text(display_label, updated.c_str());
         }
     }
@@ -69,7 +79,7 @@ private:
         }
         lv_obj_t* btn_enter = lv_event_get_current_target(e);
         lv_obj_t* popup = lv_obj_get_parent(btn_enter);
-        lv_obj_del(popup); // delete popup
+        lv_obj_del_async(lv_obj_get_parent(popup)); // deletes modal and popup
         active_button = nullptr;
     }
 public:
@@ -80,8 +90,7 @@ public:
         strncpy(number_input, current, sizeof(number_input));
         number_input[sizeof(number_input)-1] = '\0';
 
-        lv_obj_t* parent = lv_scr_act();
-        lv_obj_t* popup = lv_obj_create(parent);
+        lv_obj_t* popup = lv_obj_create(modal);
         lv_obj_set_size(popup, 300, 210);
         lv_obj_clear_flag(popup, LV_OBJ_FLAG_SCROLLABLE);
         lv_obj_align(popup, LV_ALIGN_CENTER, -20, 0);
@@ -143,12 +152,20 @@ public:
         lv_obj_add_event_cb(btn_back, backspace_event, LV_EVENT_CLICKED, display_label);
         // Enter button
         lv_obj_t* btn_enter = lv_btn_create(popup);
-        lv_obj_set_size(btn_enter, 50, (btn_size+5)*3 - 5);
+        lv_obj_set_size(btn_enter, 50, (btn_size+5)*2 - 5);
         lv_obj_set_pos(btn_enter, x0 + 4*(btn_size+5), y0 + 0*(btn_size+5));
         lv_obj_t* lbl_enter = lv_label_create(btn_enter);
         lv_label_set_text(lbl_enter, "Enter");
         lv_obj_center(lbl_enter);
         lv_obj_add_event_cb(btn_enter, enter_event, LV_EVENT_CLICKED, display_label);
+        // Minus button
+        lv_obj_t* btn_minus = lv_btn_create(popup);
+        lv_obj_set_size(btn_minus, 50, btn_size);
+        lv_obj_set_pos(btn_minus, x0 + 4*(btn_size+5), y0 + 2*(btn_size+5));
+        lv_obj_t* lbl_minus = lv_label_create(btn_minus);
+        lv_label_set_text(lbl_minus, "-");
+        lv_obj_center(lbl_minus);
+        lv_obj_add_event_cb(btn_minus, minus_key_event, LV_EVENT_CLICKED, display_label);
     }
 };
 
@@ -179,7 +196,7 @@ private:
     }
     lv_obj_t* btn_enter = lv_event_get_target(e);
     lv_obj_t* popup = lv_obj_get_parent(btn_enter);
-    lv_obj_del(popup);
+    lv_obj_del_async(lv_obj_get_parent(popup)); // deletes modal and popup
     active_button = nullptr;
 }
 
@@ -190,8 +207,7 @@ public:
         strncpy(number_input, current, sizeof(number_input));
         number_input[sizeof(number_input)-1] = '\0';
 
-        lv_obj_t* parent = lv_scr_act();
-        lv_obj_t* popup = lv_obj_create(parent);
+        lv_obj_t* popup = lv_obj_create(modal);
         lv_obj_set_size(popup, 200, 180);
         lv_obj_clear_flag(popup, LV_OBJ_FLAG_SCROLLABLE);
         lv_obj_align(popup, LV_ALIGN_CENTER, -20, 0);
@@ -257,7 +273,7 @@ private:
     }
     lv_obj_t* btn_enter = lv_event_get_target(e);
     lv_obj_t* popup = lv_obj_get_parent(btn_enter);
-    lv_obj_del(popup);
+    lv_obj_del_async(lv_obj_get_parent(popup)); // deletes modal and popup
     active_button = nullptr;
 }
 
@@ -268,8 +284,7 @@ public:
         strncpy(number_input, current, sizeof(number_input));
         number_input[sizeof(number_input)-1] = '\0';
 
-        lv_obj_t* parent = lv_scr_act();
-        lv_obj_t* popup = lv_obj_create(parent);
+        lv_obj_t* popup = lv_obj_create(modal);
         lv_obj_set_size(popup, 200, 190);
         lv_obj_clear_flag(popup, LV_OBJ_FLAG_SCROLLABLE);
         lv_obj_align(popup, LV_ALIGN_CENTER, -20, 0);
@@ -323,14 +338,14 @@ private:
     // Close button event
     static void close_event(lv_event_t* e) {
         if (popup) {
-            lv_obj_del(popup);
+            lv_obj_del_async(lv_obj_get_parent(popup)); // deletes modal and popup
             popup = nullptr;
         }
     }
     // Home button event
     static void go_home_close_event(lv_event_t* e) {
         if (popup) {
-            lv_obj_del(popup);
+            lv_obj_del_async(lv_obj_get_parent(popup)); // deletes modal and popup
             popup = nullptr;
         }
         goto_home(e);
@@ -340,7 +355,7 @@ private:
         save_auton_event(e);
         // Delete popup
         if (popup) {
-            lv_obj_del(popup);
+            lv_obj_del_async(lv_obj_get_parent(popup)); // deletes modal and popup
             popup = nullptr;
         }
         // Start auton in separate PROS task
@@ -358,8 +373,7 @@ private:
     }
 public:
     static void open(lv_event_t* e) {
-        lv_obj_t* parent = lv_scr_act();
-        popup = lv_obj_create(parent);
+        popup = lv_obj_create(modal);
         lv_obj_set_size(popup, 160, 200);
         lv_obj_clear_flag(popup, LV_OBJ_FLAG_SCROLLABLE);
         lv_obj_align(popup, LV_ALIGN_CENTER, 80, 0);
@@ -441,7 +455,7 @@ private:
     printf("test2\n");
     // Delete popup
     if (popup && lv_obj_is_valid(popup)) {
-        lv_obj_del(popup);
+        lv_obj_del_async(lv_obj_get_parent(popup)); // deletes modal and popup
         popup = nullptr;
     }
     printf("not me\n");
@@ -464,11 +478,10 @@ public:
     static void open() {
         // Delete any existing popup
         if (popup && lv_obj_is_valid(popup)) {
-            lv_obj_del(popup);
+            lv_obj_del_async(lv_obj_get_parent(popup)); // deletes modal and popup
             popup = nullptr;
         }
-        lv_obj_t* parent = lv_scr_act();
-        popup = lv_obj_create(parent);
+        popup = lv_obj_create(modal);
         lv_obj_set_size(popup, 320, 190); //160
         lv_obj_clear_flag(popup, LV_OBJ_FLAG_SCROLLABLE);
         lv_obj_align(popup, LV_ALIGN_CENTER, 40, 0); //80
@@ -512,25 +525,41 @@ public:
  * \endcode
  */
 class PopupManager {
+private:
+    static void openModal() {
+        modal = lv_obj_create(lv_scr_act());
+        lv_obj_remove_style_all(modal);                 // transparent base
+        lv_obj_set_size(modal, LV_HOR_RES, LV_VER_RES); // cover entire screen
+        lv_obj_set_style_bg_opa(modal, LV_OPA_50, 0);   // dim background
+        lv_obj_set_style_bg_color(modal, lv_color_black(), 0);
+        lv_obj_add_flag(modal, LV_OBJ_FLAG_CLICKABLE);  // block clicks
+        lv_obj_add_flag(modal, LV_OBJ_FLAG_EVENT_BUBBLE); // prevent bubbling
+        lv_obj_add_event_cb(modal, [](lv_event_t* e){}, LV_EVENT_CLICKED, nullptr); // absorb clicks
+    }
 public:
     // Called by create_number_button as event cb; user_data is the source button
     static void openNumberKey(lv_event_t* e) {
+        openModal();
         NumberKeyPopup::open(e);
     }
     // Open speed popup
     static void openSpeed(lv_event_t* e) {
+        openModal();
         NumberSpeedPopup::open(e);
     }
     // Open direction popup
     static void openDir(lv_event_t* e) {
+        openModal();
         NumberDirPopup::open(e);
     }
     // Open options popup
     static void openOptions(lv_event_t* e) {
+        openModal();
         OptionsPopup::open(e);
     }
     // Open add command popup
     static void openAddCommand(lv_event_t* e) {
+        openModal();
         AddCommandPopup::open();
     }
 };
