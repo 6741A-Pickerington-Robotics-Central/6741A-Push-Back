@@ -36,8 +36,25 @@ enum class CommandType : uint8_t {
 // Serialize an lv_obj_t* bar to a string
 std::string serialize_bar(lv_obj_t* bar) {
     LOG_INFO("Serializing bar...");
-    CommandType type = static_cast<CommandType>(reinterpret_cast<uintptr_t>(lv_obj_get_user_data(bar)));
-    //CommandType type = CommandType::Wait;
+    //CommandType type = static_cast<CommandType>(reinterpret_cast<uintptr_t>(user_data));
+    // Determine type by background color
+    lv_color_t bg = lv_obj_get_style_bg_color(bar, 0);
+    uint32_t bg32 = lv_color_to32(bg);
+    uint32_t yellow = lv_color_to32(lv_palette_main(LV_PALETTE_YELLOW));
+    uint32_t green  = lv_color_to32(lv_palette_main(LV_PALETTE_GREEN));
+    uint32_t blue   = lv_color_to32(lv_palette_main(LV_PALETTE_BLUE));
+    uint32_t red    = lv_color_to32(lv_palette_main(LV_PALETTE_RED));
+    uint32_t orange    = lv_color_to32(lv_palette_main(LV_PALETTE_ORANGE));
+    uint32_t teal    = lv_color_to32(lv_color_make(0,128,128));
+    CommandType type;
+    if (bg32 == yellow) type = CommandType::MoveToPoint;
+    else if (bg32 == orange) type = CommandType::MoveToPose;
+    else if (bg32 == teal) type = CommandType::Turn;
+    else if (bg32 == blue) type = CommandType::Motor;
+    else if (bg32 == red) type = CommandType::Piston;
+    else if (bg32 == green) type = CommandType::Wait;
+    else type = CommandType::Unknown;
+    LOG_INFO("Found Type");
     switch (type) {
         case CommandType::MoveToPose: {
             lv_obj_t* btnX = lv_obj_get_child(bar, 1);
@@ -53,7 +70,7 @@ std::string serialize_bar(lv_obj_t* bar) {
         case CommandType::MoveToPoint: {
             lv_obj_t* btnX = lv_obj_get_child(bar, 1);
             lv_obj_t* btnY = lv_obj_get_child(bar, 2);
-            lv_obj_t* toggle = lv_obj_get_child(bar, 5);
+            lv_obj_t* toggle = lv_obj_get_child(bar, 4);
             const char* x = lv_label_get_text(lv_obj_get_child(btnX, 0));
             const char* y = lv_label_get_text(lv_obj_get_child(btnY, 0));
             int toggle_state = lv_obj_has_state(toggle, LV_STATE_CHECKED) ? 1 : 0;
@@ -247,7 +264,7 @@ private:
             create_number_button(bar, "0", 0);
             lv_label_set_text(lv_label_create(bar), "dir:");
             create_number_button(bar, "0", 2);
-            lv_label_set_text(lv_label_create(bar), "Forward:");
+            lv_label_set_text(lv_label_create(bar), "Backward:");
             lv_obj_t* toggle = lv_switch_create(bar);
             lv_obj_add_event_cb(toggle, [](lv_event_t* e){
                 lv_obj_t* bar = lv_obj_get_parent(lv_event_get_target(e));
@@ -259,7 +276,7 @@ private:
             printf("b1\n");
             create_number_button(bar, "0", 0);
             create_number_button(bar, "0", 0);
-            lv_label_set_text(lv_label_create(bar), "Forward:");
+            lv_label_set_text(lv_label_create(bar), "Backward:");
             printf("b2\n");
             lv_obj_t* toggle = lv_switch_create(bar);
             lv_obj_add_event_cb(toggle, [](lv_event_t* e){

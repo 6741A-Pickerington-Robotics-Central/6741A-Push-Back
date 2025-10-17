@@ -94,7 +94,7 @@ void runtxtauton(const std::vector<std::string>& list) {
                 double x = std::stod(tokens[2]);
                 double y = std::stod(tokens[3]);
                 double theta = std::stod(tokens[4]);
-                bool goforward = (tokens[5] == "1");
+                bool goforward = (tokens[4] == "0");
                 printf("Move: x=%f, y=%f, theta=%f, forward:%d\n", x, y, theta, goforward);
                 lemlib::MoveToPoseParams poseParams = {};
                 poseParams.forwards = goforward;
@@ -108,8 +108,8 @@ void runtxtauton(const std::vector<std::string>& list) {
                 }
                 double x = std::stod(tokens[2]);
                 double y = std::stod(tokens[3]);
-                bool goforward = (tokens[5] == "1");
-                printf("Move: x=%f, y=%f, forward=%d\n", x, y, goforward);
+                bool goforward = (tokens[4] == "0");
+                printf("Move: x=%f, y=%f, backward=%d\n", x, y, goforward);
                 lemlib::MoveToPointParams pointParams = {};
                 pointParams.forwards = goforward;
                 chassis.moveToPoint(x, y, 1000, pointParams);
