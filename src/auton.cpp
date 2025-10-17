@@ -11,13 +11,15 @@ bool autonrunning = false; // Flag to indicate if the auton is currently running
 void skills_auton() {
     autonrunning = true; // Set the running flag to true
     printf("Running Skills Auton!\n");
+    chassis.setPose(0,0,0);
+    chassis.moveToPose(10,35,45,10000,{.forwards = false});
     // Skills auton
-    chassis.moveToPose(2,45,-90,10000);
-    pros::delay(1000);
-    weedwacker.set_value(true);
-    descore.set_value(true);
-    pros::delay(100);
-    chassis.moveToPose(-7,45,-90,10000);
+    //chassis.moveToPose(2,45,-90,10000);
+    //pros::delay(1000);
+    //weedwacker.set_value(true);
+    //descore.set_value(true);
+    //pros::delay(100);
+    //chassis.moveToPose(-7,45,-90,10000);
     autonrunning = false; // Set the running flag to false after the auton is complete
 }
 

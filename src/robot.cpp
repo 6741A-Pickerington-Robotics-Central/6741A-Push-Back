@@ -75,3 +75,17 @@ pros::adi::DigitalOut ballblock('D'); // Blocks balls from exiting the intake
 bool descoreState = false; // State of the weedwacker
 int descoreCooldown = 0; // Cooldown timer for weedwacker toggle
 bool ballblockstate = false; // State of the ball block
+
+void screenTaskFunction() {
+    pros::lcd::initialize(); // Initialize the LCD
+    pros::lcd::set_text(0, "Chassis Debug"); // Set the LCD title
+    while (true) {
+        pros::lcd::print(1, "Pose: (%.2f, %.2f, %.2f)", chassis.getPose().x, chassis.getPose().y, chassis.getPose().theta);
+        pros::lcd::print(2, "Heading: %.2f", imu.get_heading());
+        pros::lcd::print(3, "Horizontal Encoder: %i", horizontalEnc.get_position());
+        pros::lcd::print(4, "Vertical Encoder: %i", verticalEnc.get_position());
+        //lemlib::telemetrySink()->info("Chassis pose: {}", chassis.getPose());
+        std::cout << "H: " << horizontalEnc.get_position() << " V: " << verticalEnc.get_position() << " Chassis Theta: " << chassis.getPose().theta << " IMU: " << imu.get_heading() << "\n";
+        pros::delay(75);// Delay to save resources
+    }
+}

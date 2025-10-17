@@ -18,10 +18,10 @@ void initialize() {
 
 void autonomous() {
   //runauton();
-  chassis.setPose(0, 0, 0); // Set position to x:0, y:0, heading:0
-  chassis.moveToPose(50, 50, 90, 10000);
-  pros::delay(300);
-  chassis.moveToPose(0, 0, 0, 10000, {.forwards = false});
+  //chassis.setPose(0, 0, 0); // Set position to x:0, y:0, heading:0
+  //chassis.moveToPose(50, 50, 90, 10000);
+  //pros::delay(300);
+  //chassis.moveToPose(0, 0, 0, 10000, {.forwards = false});
 }
 
 void opcontrol() {
@@ -88,18 +88,3 @@ void opcontrol() {
         pros::delay(20); // Delay to save system resources
     }
 }
-/*
-void screenTaskFunction() {
-    pros::lcd::initialize(); // Initialize the LCD
-    pros::lcd::set_text(0, "Chassis Debug"); // Set the LCD title
-    while (true) {
-        pros::lcd::print(1, "Pose: (%.2f, %.2f, %.2f)", chassis.getPose().x, chassis.getPose().y, chassis.getPose().theta);
-        pros::lcd::print(2, "Heading: %.2f", imu.get_heading());
-        pros::lcd::print(3, "Horizontal Encoder: %i", horizontalEnc.get_position());
-        pros::lcd::print(4, "Vertical Encoder: %i", verticalEnc.get_position());
-        //lemlib::telemetrySink()->info("Chassis pose: {}", chassis.getPose());
-        std::cout << "H: " << horizontalEnc.get_position() << " V: " << verticalEnc.get_position() << " Chassis Theta: " << chassis.getPose().theta << " IMU: " << imu.get_heading() << "\n";
-        pros::delay(75);// Delay to save resources
-    }
-}
-*/

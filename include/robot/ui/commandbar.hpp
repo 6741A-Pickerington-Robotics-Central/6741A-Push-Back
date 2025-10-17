@@ -62,10 +62,11 @@ std::string serialize_bar(lv_obj_t* bar) {
             lv_obj_t* btnDir = lv_obj_get_child(bar, 4);
             const char* x = lv_label_get_text(lv_obj_get_child(btnX, 0));
             const char* y = lv_label_get_text(lv_obj_get_child(btnY, 0));
+            const char* dir = lv_label_get_text(lv_obj_get_child(btnDir, 0));
             lv_obj_t* toggle = lv_obj_get_child(bar, 5);
             int toggle_state = lv_obj_has_state(toggle, LV_STATE_CHECKED) ? 1 : 0;
             LOG_INFO("Serialized A Move To Pose Command");
-            return "M,r," + std::string(x) + "," + std::string(y) + "," + std::to_string(toggle_state);
+            return "M,r," + std::string(x) + "," + std::string(y) + "," + dir + "," + std::to_string(toggle_state);
         }
         case CommandType::MoveToPoint: {
             lv_obj_t* btnX = lv_obj_get_child(bar, 1);
@@ -172,7 +173,7 @@ public:
     void deserialize(const std::string& line) {
         if (line.size() < 3) return;
 
-        if (type == "movetopose") {
+        if (type == "movetopose") {//M,r,20,35,45,0
             printf("d1\n");
             std::vector<std::string> tokens = split(line, ',');
             printf("d2\n");
@@ -264,7 +265,6 @@ private:
             create_number_button(bar, "0", 0);
             lv_label_set_text(lv_label_create(bar), "dir:");
             create_number_button(bar, "0", 2);
-            lv_label_set_text(lv_label_create(bar), "Backward:");
             lv_obj_t* toggle = lv_switch_create(bar);
             lv_obj_add_event_cb(toggle, [](lv_event_t* e){
                 lv_obj_t* bar = lv_obj_get_parent(lv_event_get_target(e));
