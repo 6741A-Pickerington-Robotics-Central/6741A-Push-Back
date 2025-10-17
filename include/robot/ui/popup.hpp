@@ -421,8 +421,8 @@ private:
     CommandData cmd;
     cmd.type = payload->type;
     // Fill default serialized line with zeros so it doesn’t get discarded
-    if (cmd.type == "movetopose") cmd.line = "M,r,0,0,0,0";
-    else if (cmd.type == "movetopoint") cmd.line = "P,r,0,0,0";
+    if (cmd.type == "movetopose") cmd.line = "M,r,0,0,0,0"; //4 0s
+    else if (cmd.type == "movetopoint") cmd.line = "P,r,0,0,0"; //3 0s
     else if (cmd.type == "turn") cmd.line = "t,r,0";
     else if (cmd.type == "wait") cmd.line = "w,r,0";
     else if (cmd.type == "motor") cmd.line = "s,a,0";

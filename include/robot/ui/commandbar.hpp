@@ -19,8 +19,8 @@ extern lv_obj_t* create_number_button(lv_obj_t* parent, const char* text, int id
 extern void update_command_list_from_bar(lv_obj_t* bar);
 
 struct CommandData {
-    std::string type;
-    std::string line; // serialized command
+    std::string type;       // "movetopose", "turn", etc.
+    std::string line;       // optional serialized version for file save/load
 };
 
 enum class CommandType : uint8_t {
@@ -37,6 +37,7 @@ enum class CommandType : uint8_t {
 std::string serialize_bar(lv_obj_t* bar) {
     LOG_INFO("Serializing bar...");
     CommandType type = static_cast<CommandType>(reinterpret_cast<uintptr_t>(lv_obj_get_user_data(bar)));
+    //CommandType type = CommandType::Wait;
     switch (type) {
         case CommandType::MoveToPose: {
             lv_obj_t* btnX = lv_obj_get_child(bar, 1);
@@ -52,7 +53,7 @@ std::string serialize_bar(lv_obj_t* bar) {
         case CommandType::MoveToPoint: {
             lv_obj_t* btnX = lv_obj_get_child(bar, 1);
             lv_obj_t* btnY = lv_obj_get_child(bar, 2);
-            lv_obj_t* toggle = lv_obj_get_child(bar, 4);
+            lv_obj_t* toggle = lv_obj_get_child(bar, 5);
             const char* x = lv_label_get_text(lv_obj_get_child(btnX, 0));
             const char* y = lv_label_get_text(lv_obj_get_child(btnY, 0));
             int toggle_state = lv_obj_has_state(toggle, LV_STATE_CHECKED) ? 1 : 0;
@@ -132,10 +133,12 @@ public:
         LOG_INFO("Creating a command bar");
         CommandBar cmd;
         cmd.type = typeStr;  // keep string for old code
-        CommandType typeEnum = string_to_command_type(typeStr);
+        static CommandType typeEnum = string_to_command_type(typeStr);
         cmd.bar = lv_obj_create(parent);
 
-        lv_obj_set_user_data(cmd.bar, reinterpret_cast<void*>(static_cast<uintptr_t>(typeEnum)));
+        //lv_obj_set_user_data(cmd.bar, reinterpret_cast<void*>(static_cast<uintptr_t>(typeEnum)));
+        lv_obj_set_user_data(cmd.bar, &typeEnum);
+
 
         lv_obj_set_size(cmd.bar, 370, 55);
         lv_obj_set_flex_flow(cmd.bar, LV_FLEX_FLOW_ROW);

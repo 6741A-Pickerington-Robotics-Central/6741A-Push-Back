@@ -535,15 +535,7 @@ lv_obj_t* create_number_button(lv_obj_t* parent, const char* text, int type) {
 }
 
 void render_visible_range() {
-    //for (auto& cmd : visible_bars) {
-    //    if (cmd.bar) {
-    //        char* type_str = static_cast<char*>(lv_obj_get_user_data(cmd.bar));
-    //        if (type_str) free(type_str);
-    //        lv_obj_del(cmd.bar);
-    //    }
-    //}
     visible_bars.clear();
-
     lv_obj_clean(list_inner);
     printf("fine1\n");
     // Determine start and end of the render range
@@ -691,13 +683,6 @@ void down_event(lv_event_t* e) {
 
 void delete_selected_command(lv_event_t* e) { // Deletes the currently selected command
     if (selected_index < 0 || selected_index >= (int)command_list.size()) return;
-
-    //// Free the user_data string
-    //if (selected_index < (int)visible_bars.size()) {
-    //    char* type_str = static_cast<char*>(lv_obj_get_user_data(visible_bars[selected_index].bar));
-    //    if (type_str) free(type_str);
-    //    lv_obj_del(visible_bars[selected_index].bar);
-    //}
 
     // Remove from the data list
     command_list.erase(command_list.begin() + selected_index);
