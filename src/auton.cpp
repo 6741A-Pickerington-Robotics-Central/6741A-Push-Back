@@ -89,14 +89,15 @@ void runtxtauton(const std::vector<std::string>& list) {
         std::string device = (tokens.size() > 1) ? tokens[1] : "";
         switch (type) {
             case 'M': {
-                if (tokens.size() < 5) {
+                //M,r,0,20,30,0
+                if (tokens.size() < 6) {
                     printf("Error: malformed move command: %s\n", line.c_str());
                     break;
                 }
                 double x = std::stod(tokens[2]);
                 double y = std::stod(tokens[3]);
                 double theta = std::stod(tokens[4]);
-                bool goforward = (tokens[4] == "0");
+                bool goforward = (tokens[5] == "0");
                 printf("Move: x=%f, y=%f, theta=%f, forward:%d\n", x, y, theta, goforward);
                 lemlib::MoveToPoseParams poseParams = {};
                 poseParams.forwards = goforward;

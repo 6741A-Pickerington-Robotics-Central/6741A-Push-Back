@@ -17,7 +17,7 @@ lemlib::Drivetrain drivetrain(&leftMotors, // left motor group
 );
 // Lateral motion controller
 lemlib::ControllerSettings linearController(20, // proportional gain (kP)
-                                            0, // integral gain (kI)
+                                            0.01, // integral gain (kI)
                                             0.1, // derivative gain (kD)
                                             0, // anti windup
                                             1, // small error range, in inches
