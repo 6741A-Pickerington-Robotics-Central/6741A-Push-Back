@@ -1,6 +1,7 @@
 #include "robot/ui/commandbar.hpp"
 #include "robot/ui/popup.hpp"
 #include "robot/robot.hpp"
+#include "robot/ezlog.hpp"
 // General headers
 #include "pros/motors.h"
 #include "pros/rtos.hpp"

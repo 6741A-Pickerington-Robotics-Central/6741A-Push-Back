@@ -1,6 +1,7 @@
 #ifndef COMMANDBAR_HPP
 #define COMMANDBAR_HPP
 #include "robot/ui/colors.hpp"
+#include "robot/ezlog.hpp"
 // General headers
 #include "pros/motors.h"
 #include "pros/rtos.hpp"
@@ -34,14 +35,8 @@ enum class CommandType : uint8_t {
 
 // Serialize an lv_obj_t* bar to a string
 std::string serialize_bar(lv_obj_t* bar) {
-    printf("Serializing bar...\n");
-    if (!bar) return "";
-    printf("Bar exists\n");
+    LOG_INFO("Serializing bar...");
     CommandType type = static_cast<CommandType>(reinterpret_cast<uintptr_t>(lv_obj_get_user_data(bar)));
-
-    //const char* type = static_cast<const char*>(lv_obj_get_user_data(bar));
-    //if (!type) return "";
-    printf("Type exists\n");
     switch (type) {
         case CommandType::MoveToPose: {
             lv_obj_t* btnX = lv_obj_get_child(bar, 1);
@@ -51,6 +46,7 @@ std::string serialize_bar(lv_obj_t* bar) {
             const char* y = lv_label_get_text(lv_obj_get_child(btnY, 0));
             lv_obj_t* toggle = lv_obj_get_child(bar, 5);
             int toggle_state = lv_obj_has_state(toggle, LV_STATE_CHECKED) ? 1 : 0;
+            LOG_INFO("Serialized A Move To Pose Command");
             return "M,r," + std::string(x) + "," + std::string(y) + "," + std::to_string(toggle_state);
         }
         case CommandType::MoveToPoint: {
@@ -60,16 +56,19 @@ std::string serialize_bar(lv_obj_t* bar) {
             const char* x = lv_label_get_text(lv_obj_get_child(btnX, 0));
             const char* y = lv_label_get_text(lv_obj_get_child(btnY, 0));
             int toggle_state = lv_obj_has_state(toggle, LV_STATE_CHECKED) ? 1 : 0;
+            LOG_INFO("Serialized A Move To Point Command");
             return "P,r," + std::string(x) + "," + std::string(y) + "," + std::to_string(toggle_state);
         }
         case CommandType::Turn: {
             lv_obj_t* btnDir = lv_obj_get_child(bar, 1);
             const char* dir = lv_label_get_text(lv_obj_get_child(btnDir, 0));
+            LOG_INFO("Serialized A Turn Command");
             return "t,r," + std::string(dir);
         }
         case CommandType::Wait: {
             lv_obj_t* btn = lv_obj_get_child(bar, 1);
             const char* sec = lv_label_get_text(lv_obj_get_child(btn, 0));
+            LOG_INFO("Serialized A Wait Command");
             return "w,r," + std::string(sec);
         }
         case CommandType::Motor: {
@@ -82,6 +81,7 @@ std::string serialize_bar(lv_obj_t* bar) {
             else if (strcmp(buffer, "Intake Middle") == 0) motor_letter = 'b';
             else if (strcmp(buffer, "Intake Bottom") == 0) motor_letter = 'c';
             const char* speed = lv_label_get_text(lv_obj_get_child(btn, 0));
+            LOG_INFO("Serialized A Motor Command");
             return "s," + std::string(1, motor_letter) + "," + std::string(speed);
         }
         case CommandType::Piston: {
@@ -94,10 +94,11 @@ std::string serialize_bar(lv_obj_t* bar) {
             else if (strcmp(buffer, "Weedwacker") == 0) piston_letter = 'w';
             else if (strcmp(buffer, "Ball Block") == 0) piston_letter = 'b';
             int state = lv_obj_has_state(sw, LV_STATE_CHECKED) ? 1 : 0;
+            LOG_INFO("Serialized A Pistion Command");
             return "p," + std::string(1, piston_letter) + "," + std::to_string(state);
         }
-
         default:
+            LOG_WARN("Blank Type");
             return "";
     }
 }
@@ -128,27 +129,22 @@ public:
     
     // === Factory ===
     static CommandBar create(lv_obj_t* parent, const std::string& typeStr) {
+        LOG_INFO("Creating a command bar");
         CommandBar cmd;
         cmd.type = typeStr;  // keep string for old code
         CommandType typeEnum = string_to_command_type(typeStr);
         cmd.bar = lv_obj_create(parent);
-        printf("c1\n");
 
         lv_obj_set_user_data(cmd.bar, reinterpret_cast<void*>(static_cast<uintptr_t>(typeEnum)));
-        printf("c2\n");
-        // Store type in user data for serialization
-        //char* heapType = strdup(type.c_str());
-        //lv_obj_set_user_data(cmd.bar, heapType);
 
         lv_obj_set_size(cmd.bar, 370, 55);
         lv_obj_set_flex_flow(cmd.bar, LV_FLEX_FLOW_ROW);
         lv_obj_set_style_flex_cross_place(cmd.bar, LV_FLEX_ALIGN_CENTER, 0);
         lv_obj_set_style_pad_all(cmd.bar, 4, 0);
         lv_obj_clear_flag(cmd.bar, LV_OBJ_FLAG_SCROLLABLE);
-        printf("c3\n");
+
         // Use helper to build bar contents
         cmd.build();
-        printf("c4\n");
         return cmd;
     }
 

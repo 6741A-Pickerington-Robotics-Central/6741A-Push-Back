@@ -1,4 +1,5 @@
 #include "robot/robot.hpp" // Refrences to entire robot
+#include "robot/ezlog.hpp"
 #include <fstream>
 #include <string>
 #include <vector>

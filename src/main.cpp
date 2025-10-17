@@ -1,4 +1,5 @@
 #include "robot/robot.hpp" // Refrences to entire robot
+#include "robot/ezlog.hpp"
 
 void screenTaskFunction(); // Forward declaration of the screen task function
 

@@ -3,7 +3,8 @@
 #include "robot/ui/commandbar.hpp"
 #include "robot/ui/colors.hpp"
 #include "robot/robot.hpp"
-#include "liblvgl/lvgl.h"   
+#include "liblvgl/lvgl.h"  
+#include "robot/ezlog.hpp" 
 extern lv_obj_t* list_inner;
 
 void goto_home(lv_event_t *e);
