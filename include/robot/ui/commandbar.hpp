@@ -56,7 +56,7 @@ std::string serialize_bar(lv_obj_t* bar) {
         case CommandType::MoveToPoint: {
             lv_obj_t* btnX = lv_obj_get_child(bar, 1);
             lv_obj_t* btnY = lv_obj_get_child(bar, 2);
-            lv_obj_t* toggle = lv_obj_get_child(bar, 5);
+            lv_obj_t* toggle = lv_obj_get_child(bar, 4);
             const char* x = lv_label_get_text(lv_obj_get_child(btnX, 0));
             const char* y = lv_label_get_text(lv_obj_get_child(btnY, 0));
             int toggle_state = lv_obj_has_state(toggle, LV_STATE_CHECKED) ? 1 : 0;
@@ -132,9 +132,10 @@ public:
         cmd.type = typeStr;  // keep string for old code
         CommandType typeEnum = string_to_command_type(typeStr);
         cmd.bar = lv_obj_create(parent);
+        printf("c1\n");
 
         lv_obj_set_user_data(cmd.bar, reinterpret_cast<void*>(static_cast<uintptr_t>(typeEnum)));
-
+        printf("c2\n");
         // Store type in user data for serialization
         //char* heapType = strdup(type.c_str());
         //lv_obj_set_user_data(cmd.bar, heapType);
@@ -144,9 +145,10 @@ public:
         lv_obj_set_style_flex_cross_place(cmd.bar, LV_FLEX_ALIGN_CENTER, 0);
         lv_obj_set_style_pad_all(cmd.bar, 4, 0);
         lv_obj_clear_flag(cmd.bar, LV_OBJ_FLAG_SCROLLABLE);
-
+        printf("c3\n");
         // Use helper to build bar contents
         cmd.build();
+        printf("c4\n");
         return cmd;
     }
 
@@ -155,22 +157,46 @@ public:
         if (line.size() < 3) return;
 
         if (type == "movetopose") {
+            printf("d1\n");
             std::vector<std::string> tokens = split(line, ',');
-            if (tokens.size() < 5) return;
+            printf("d2\n");
+            //if (tokens.size() < 5) return;
             setButtonText(1, tokens[2]);
             setButtonText(2, tokens[3]);
             setButtonText(4, tokens[4]);
+            printf("d3\n");
             lv_obj_t* toggle = lv_obj_get_child(bar, 5);
+            printf("d4\n");
             if (tokens[5] == "1") lv_obj_add_state(toggle, LV_STATE_CHECKED);
             else lv_obj_clear_state(toggle, LV_STATE_CHECKED);
+            printf("d5\n");
         } else if (type == "movetopoint") {
+            printf("d1\n");
             std::vector<std::string> tokens = split(line, ',');
-            if (tokens.size() < 5) return;
+            printf("d2\n");
+            //if (tokens.size() < 5) return;
             setButtonText(1, tokens[2]);
             setButtonText(2, tokens[3]);
-            lv_obj_t* toggle = lv_obj_get_child(bar, 5);
-            if (tokens[5] == "1") lv_obj_add_state(toggle, LV_STATE_CHECKED);
-            else lv_obj_clear_state(toggle, LV_STATE_CHECKED);
+            printf("d3\n");
+            lv_obj_t* toggle = lv_obj_get_child(bar, 4);
+            printf("Tokens has %zu elements\n", tokens.size());
+            printf("d4\n");
+            if (toggle == nullptr) {
+                printf("Error: toggle is null\n");
+            } else {
+                printf("toggle pointer: %p\n", toggle);
+            }
+            if (tokens[4] == "1") {
+                printf("setting toggle to true\n");
+                lv_obj_add_state(toggle, LV_STATE_CHECKED);
+                printf("set toggle to true\n");
+            }
+            else {
+                printf("setting toggle to false\n");
+                lv_obj_clear_state(toggle, LV_STATE_CHECKED);
+                printf("set toggle to false\n");
+            }
+            printf("d5\n");
         } else if (type == "turn") {
             std::vector<std::string> tokens = split(line, ',');
             if (tokens.size() < 3) return;
@@ -231,17 +257,17 @@ private:
         } else if (type == "movetopoint") {
             lv_obj_set_style_bg_color(bar, yellow, 0);
             lv_label_set_text(lv_label_create(bar), "Move to x,y:");
-            printf("1\n");
+            printf("b1\n");
             create_number_button(bar, "0", 0);
             create_number_button(bar, "0", 0);
             lv_label_set_text(lv_label_create(bar), "Forward:");
-            printf("2\n");
+            printf("b2\n");
             lv_obj_t* toggle = lv_switch_create(bar);
             lv_obj_add_event_cb(toggle, [](lv_event_t* e){
                 lv_obj_t* bar = lv_obj_get_parent(lv_event_get_target(e));
                 update_command_list_from_bar(bar);
             }, LV_EVENT_VALUE_CHANGED, nullptr);
-            printf("3\n");
+            printf("b3\n");
         } else if (type == "turn") {
             lv_obj_set_style_bg_color(bar, teal, 0);
             lv_label_set_text(lv_label_create(bar), "Turn to dir:");

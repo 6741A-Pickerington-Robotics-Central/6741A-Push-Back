@@ -420,7 +420,7 @@ private:
     CommandData cmd;
     cmd.type = payload->type;
     // Fill default serialized line with zeros so it doesn’t get discarded
-    if (cmd.type == "movetopose") cmd.line = "M,r,0,0,0";
+    if (cmd.type == "movetopose") cmd.line = "M,r,0,0,0,0";
     else if (cmd.type == "movetopoint") cmd.line = "P,r,0,0,0";
     else if (cmd.type == "turn") cmd.line = "t,r,0";
     else if (cmd.type == "wait") cmd.line = "w,r,0";
@@ -434,13 +434,16 @@ private:
     // Insert into model
     command_list.insert(command_list.begin() + insert_index, cmd);
     selected_index = insert_index;
+    printf("test1\n");
     // Refresh visible bars
     ensure_selected_visible();
+    printf("test2\n");
     // Delete popup
     if (popup && lv_obj_is_valid(popup)) {
         lv_obj_del(popup);
         popup = nullptr;
     }
+    printf("not me\n");
     delete payload;
 }
 

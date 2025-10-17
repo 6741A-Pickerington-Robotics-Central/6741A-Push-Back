@@ -544,25 +544,34 @@ void render_visible_range() {
     visible_bars.clear();
 
     lv_obj_clean(list_inner);
+    printf("fine1\n");
     // Determine start and end of the render range
     int start = std::max(first_visible_index - buffer_above, 0);
     int end = std::min(first_visible_index + window_size + buffer_below,(int)command_list.size());
-
+    printf("fine2\n");
     for (int i = start; i < end; ++i) {
+        printf("t1\n");
         CommandBar cmd = CommandBar::create(list_inner, command_list[i].type);
+        printf("t2\n");
         cmd.deserialize(command_list[i].line);
         // Attach the global index 'i' to the bar so popups can find the model entry.
         // Note: cast through intptr_t to avoid warnings.
+        printf("t3\n");
         lv_obj_set_user_data(cmd.bar, (void*)(intptr_t)i);
+        printf("t4\n");
         visible_bars.push_back(cmd);
+        printf("t5\n");
     }
+    printf("fine3\n");
     // Shift the whole container upward so top buffer bar starts off-screen
     if (first_visible_index > 0) {
         lv_obj_set_y(list_inner, -bar_height * buffer_above);
     } else {
         lv_obj_set_y(list_inner, 0);
     }
+    printf("fine4\n");
     highlight_selected();
+    printf("not me2\n");
 }
 
 void animate_scroll(int direction) {
