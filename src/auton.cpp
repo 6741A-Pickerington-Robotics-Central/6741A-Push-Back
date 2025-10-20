@@ -7,6 +7,19 @@
 
 bool autonrunning = false; // Flag to indicate if the auton is currently running
 
+void driveForwardToTarget(double distance) {
+    lemlib::Pose Pose = chassis.getPose();
+    double headingRad = Pose.theta * M_PI / 180.0; // convert degrees → radians
+    double newX = Pose.x + distance * sin(headingRad);
+    double newY = Pose.y + distance * cos(headingRad);
+    printf("Current Pose: x=%.2f, y=%.2f, theta=%.2f\n", Pose.x, Pose.y, Pose.theta);
+    printf("New Target Pose: x=%.2f, y=%.2f, theta=%.2f\n", newX, newY, Pose.theta);
+    if (distance >= 0) {
+        chassis.moveToPoint(newX,newY, 1000); // same heading
+    } else {
+        chassis.moveToPoint(newX,newY, 1000, {.forwards = false}); // same heading
+    }
+}
 
 void skills_auton() {
     autonrunning = true; // Set the running flag to true
@@ -36,7 +49,7 @@ std::vector<std::string> load_auton_for_runtxt(const std::string& filename) {
         if (line.empty()) continue;
         // Check if line starts with a recognized command
         char type = line[0];
-        if (type == 'M' || type == 'P'|| type == 't' || type == 's' || type == 'w' || type == 'p') {
+        if (type == 'M' || type == 'P'|| type == 't' || type == 'f' || type == 's' || type == 'w' || type == 'p') {
             // Basic validation: check commas exist
             size_t comma_count = std::count(line.begin(), line.end(), ',');
             if (comma_count >= 2) { // m,r,0,0,0 has 4 commas
@@ -87,6 +100,8 @@ void runtxtauton(const std::vector<std::string>& list) {
         if (tokens.empty()) continue;
         char type = tokens[0][0];        // 'M', 'P', 's', 'w', 'p'
         std::string device = (tokens.size() > 1) ? tokens[1] : "";
+        lemlib::Pose currentPose = chassis.getPose();
+        printf("Current Pose: x=%.2f, y=%.2f, theta=%.2f\n", currentPose.x, currentPose.y, currentPose.theta);
         switch (type) {
             case 'M': {
                 //M,r,0,20,30,0
@@ -126,6 +141,16 @@ void runtxtauton(const std::vector<std::string>& list) {
                 double theta = std::stod(tokens[2]);
                 printf("Turn: theta=%f\n", theta);
                 chassis.turnToHeading(theta, 1000);
+                break;
+            }
+            case 'f': {
+                if (tokens.size() < 3) {
+                    printf("Error: malformed forward command: %s\n", line.c_str());
+                    break;
+                }
+                double distance = std::stod(tokens[2]);
+                printf("Drive Forward: distance=%f\n", distance);
+                driveForwardToTarget(distance);
                 break;
             }
             case 's': {

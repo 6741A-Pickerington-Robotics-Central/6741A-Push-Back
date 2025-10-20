@@ -27,6 +27,7 @@ enum class CommandType : uint8_t {
     MoveToPose,
     MoveToPoint,
     Turn,
+    Forward,
     Wait,
     Motor,
     Piston,
@@ -46,10 +47,12 @@ std::string serialize_bar(lv_obj_t* bar) {
     uint32_t red    = lv_color_to32(lv_palette_main(LV_PALETTE_RED));
     uint32_t orange    = lv_color_to32(lv_palette_main(LV_PALETTE_ORANGE));
     uint32_t teal    = lv_color_to32(lv_color_make(0,128,128));
+    uint32_t purple    = lv_color_to32(lv_palette_main(LV_PALETTE_PURPLE));
     CommandType type;
     if (bg32 == yellow) type = CommandType::MoveToPoint;
     else if (bg32 == orange) type = CommandType::MoveToPose;
     else if (bg32 == teal) type = CommandType::Turn;
+    else if (bg32 == purple) type = CommandType::Forward;
     else if (bg32 == blue) type = CommandType::Motor;
     else if (bg32 == red) type = CommandType::Piston;
     else if (bg32 == green) type = CommandType::Wait;
@@ -83,6 +86,12 @@ std::string serialize_bar(lv_obj_t* bar) {
             const char* dir = lv_label_get_text(lv_obj_get_child(btnDir, 0));
             LOG_INFO("Serialized A Turn Command");
             return "t,r," + std::string(dir);
+        }
+        case CommandType::Forward: {
+            lv_obj_t* btnDist = lv_obj_get_child(bar, 1);
+            const char* dist = lv_label_get_text(lv_obj_get_child(btnDist, 0));
+            LOG_INFO("Serialized A Drive Forward Command");
+            return "f,r," + std::string(dist);
         }
         case CommandType::Wait: {
             lv_obj_t* btn = lv_obj_get_child(bar, 1);
@@ -128,6 +137,7 @@ static CommandType string_to_command_type(const std::string& typeStr) {
     if (typeStr == "movetopose") return CommandType::MoveToPose;
     if (typeStr == "movetopoint") return CommandType::MoveToPoint;
     if (typeStr == "turn")       return CommandType::Turn;
+    if (typeStr == "forward")       return CommandType::Forward;
     if (typeStr == "wait")       return CommandType::Wait;
     if (typeStr == "motor")      return CommandType::Motor;
     if (typeStr == "piston")     return CommandType::Piston;
@@ -174,7 +184,7 @@ public:
     // === Deserialize (load string data -> LVGL UI) ===
     void deserialize(const std::string& line) {
         if (line.size() < 3) return;
-
+        printf("Deserializing command bar with line: %s\n", line.c_str());
         if (type == "movetopose") {//M,r,20,35,45,0
             printf("d1\n");
             std::vector<std::string> tokens = split(line, ',');
@@ -217,6 +227,11 @@ public:
             }
             printf("d5\n");
         } else if (type == "turn") {
+            std::vector<std::string> tokens = split(line, ',');
+            if (tokens.size() < 3) return;
+            setButtonText(1, tokens[2]);
+        } else if (type == "forward") {
+            LOG_INFO("Deserializing a forward command");
             std::vector<std::string> tokens = split(line, ',');
             if (tokens.size() < 3) return;
             setButtonText(1, tokens[2]);
@@ -293,6 +308,10 @@ private:
             lv_obj_set_style_bg_color(bar, teal, 0);
             lv_label_set_text(lv_label_create(bar), "Turn to dir:");
             create_number_button(bar, "0", 2);
+        } else if (type == "forward") {
+            lv_obj_set_style_bg_color(bar, purple, 0);
+            lv_label_set_text(lv_label_create(bar), "Drive Forward:");
+            create_number_button(bar, "0", 0);
         } else if (type == "wait") {
             lv_obj_set_style_bg_color(bar, green, 0);
             lv_label_set_text(lv_label_create(bar), "Wait");

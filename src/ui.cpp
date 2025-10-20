@@ -710,6 +710,7 @@ void load_auton_event(std::string filename) {
             case 'M': data.type = "movetopose"; break;
             case 'P': data.type = "movetopoint"; break; 
             case 't': data.type = "turn"; break;
+            case 'f': data.type = "forward"; break;
             case 'w': data.type = "wait"; break;
             case 's': data.type = "motor"; break;
             case 'p': data.type = "piston"; break;
