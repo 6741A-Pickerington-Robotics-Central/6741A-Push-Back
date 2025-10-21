@@ -358,23 +358,33 @@ private:
             lv_obj_del_async(lv_obj_get_parent(popup)); // deletes modal and popup
             popup = nullptr;
         }
-        // Start auton in separate PROS task
-        //pros::Task([](void*) {
-        //    // Slight delay to allow user to move away
-        //    pros::delay(1000);
-        //    // Run the auton
-        //    //();
-        //}, TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "RunAutonTask");
         pros::delay(1000);
         std::string path = get_auton_file_path(); // your existing function
         std::vector<std::string> auton_lines = load_auton_for_runtxt(path);
         runtxtauton(auton_lines);
 
     }
+    static void update_position_task(void* param) {
+        lv_obj_t* label = static_cast<lv_obj_t*>(param);
+        while (popup != nullptr) {
+            // Get robot position from lemlib or odom
+            lemlib::Pose pose = chassis.getPose();
+            double x = pose.x;
+            double y = pose.y;
+            double dir = pose.theta;
+            // Update label
+            char buf[64];
+            snprintf(buf, sizeof(buf), "X:\n%.1f\nY:\n%.1f\nDir:\n%.1f", x, y, dir);
+            lv_label_set_text(label, buf);
+            LOG_INFO("Popup Position Update: X: %.1f Y: %.1f Dir: %.1f", x, y, dir);
+            pros::delay(200); // 0.2 seconds
+        }
+        pros::Task::current().remove();
+    }
 public:
     static void open(lv_event_t* e) {
         popup = lv_obj_create(modal);
-        lv_obj_set_size(popup, 160, 200);
+        lv_obj_set_size(popup, 230, 200);//160,200
         lv_obj_clear_flag(popup, LV_OBJ_FLAG_SCROLLABLE);
         lv_obj_align(popup, LV_ALIGN_CENTER, 80, 0);
         lv_obj_set_style_bg_color(popup, purple, 0);
@@ -383,7 +393,7 @@ public:
         // Save button
         lv_obj_t* btn_save = lv_btn_create(popup);
         lv_obj_set_size(btn_save, 150, 40);
-        lv_obj_align(btn_save, LV_ALIGN_CENTER, 0, -70);
+        lv_obj_align(btn_save, LV_ALIGN_CENTER, 35, -70);
         lv_obj_t* lbl_save = lv_label_create(btn_save);
         lv_label_set_text(lbl_save, "Save");
         lv_obj_center(lbl_save);
@@ -391,7 +401,7 @@ public:
         // Run button
         lv_obj_t* btn_run = lv_btn_create(popup);
         lv_obj_set_size(btn_run, 150, 40);
-        lv_obj_align(btn_run, LV_ALIGN_CENTER, 0, -23);
+        lv_obj_align(btn_run, LV_ALIGN_CENTER, 35, -23);
         lv_obj_t* lbl_run = lv_label_create(btn_run);
         lv_label_set_text(lbl_run, "Run");
         lv_obj_center(lbl_run);
@@ -399,7 +409,7 @@ public:
         // Home button
         lv_obj_t* btn_home = lv_btn_create(popup);
         lv_obj_set_size(btn_home, 150, 40);
-        lv_obj_align(btn_home, LV_ALIGN_CENTER, 0, 23);
+        lv_obj_align(btn_home, LV_ALIGN_CENTER, 35, 23);
         lv_obj_t* lbl_home = lv_label_create(btn_home);
         lv_label_set_text(lbl_home, "Home");
         lv_obj_center(lbl_home);
@@ -407,11 +417,22 @@ public:
         // Close button
         lv_obj_t* btn_close = lv_btn_create(popup);
         lv_obj_set_size(btn_close, 150, 40);
-        lv_obj_align(btn_close, LV_ALIGN_CENTER, 0, 70);
+        lv_obj_align(btn_close, LV_ALIGN_CENTER, 35, 70);
         lv_obj_t* lbl_close = lv_label_create(btn_close);
         lv_label_set_text(lbl_close, "Close");
         lv_obj_center(lbl_close);
         lv_obj_add_event_cb(btn_close, close_event, LV_EVENT_CLICKED, nullptr);
+        // Pos label
+        lv_obj_t* lbl_pos = lv_label_create(popup);
+        lv_label_set_text(lbl_pos, "X:\n\nY:\n\nDir:");
+        lv_obj_align(lbl_pos, LV_ALIGN_TOP_LEFT, 0, 0);
+        lv_obj_set_style_text_color(lbl_pos, lv_color_white(), 0);
+        static lv_style_t big_text;
+        lv_style_init(&big_text);
+        lv_style_set_text_font(&big_text, &lv_font_montserrat_20); // choose font size
+        lv_obj_add_style(lbl_pos, &big_text, 0);
+        // Start position update task
+        //pros::Task pos_task(update_position_task, lbl_pos);
     }
 };
 
