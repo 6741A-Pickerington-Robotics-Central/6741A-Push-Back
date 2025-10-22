@@ -364,23 +364,23 @@ private:
         runtxtauton(auton_lines);
 
     }
-    static void update_position_task(void* param) {
-        lv_obj_t* label = static_cast<lv_obj_t*>(param);
-        while (popup != nullptr) {
-            // Get robot position from lemlib or odom
-            lemlib::Pose pose = chassis.getPose();
-            double x = pose.x;
-            double y = pose.y;
-            double dir = pose.theta;
-            // Update label
-            char buf[64];
-            snprintf(buf, sizeof(buf), "X:\n%.1f\nY:\n%.1f\nDir:\n%.1f", x, y, dir);
-            lv_label_set_text(label, buf);
-            LOG_INFO("Popup Position Update: X: %.1f Y: %.1f Dir: %.1f", x, y, dir);
-            pros::delay(200); // 0.2 seconds
-        }
-        pros::Task::current().remove();
-    }
+    //static void update_position_task(void* param) {
+    //    lv_obj_t* label = static_cast<lv_obj_t*>(param);
+    //    while (popup != nullptr) {
+    //        // Get robot position from lemlib or odom
+    //        lemlib::Pose pose = chassis.getPose();
+    //        double x = pose.x;
+    //        double y = pose.y;
+    //        double dir = pose.theta;
+    //        // Update label
+    //        char buf[64];
+    //        snprintf(buf, sizeof(buf), "X:\n%.1f\nY:\n%.1f\nDir:\n%.1f", x, y, dir);
+    //        lv_label_set_text(label, buf);
+    //        LOG_INFO("Popup Position Update: X: %.1f Y: %.1f Dir: %.1f", x, y, dir);
+    //        pros::delay(200); // 0.2 seconds
+    //    }
+    //    pros::Task::current().remove();
+    //}
 public:
     static void open(lv_event_t* e) {
         popup = lv_obj_create(modal);
@@ -423,14 +423,14 @@ public:
         lv_obj_center(lbl_close);
         lv_obj_add_event_cb(btn_close, close_event, LV_EVENT_CLICKED, nullptr);
         // Pos label
-        lv_obj_t* lbl_pos = lv_label_create(popup);
-        lv_label_set_text(lbl_pos, "X:\n\nY:\n\nDir:");
-        lv_obj_align(lbl_pos, LV_ALIGN_TOP_LEFT, 0, 0);
-        lv_obj_set_style_text_color(lbl_pos, lv_color_white(), 0);
-        static lv_style_t big_text;
-        lv_style_init(&big_text);
-        lv_style_set_text_font(&big_text, &lv_font_montserrat_20); // choose font size
-        lv_obj_add_style(lbl_pos, &big_text, 0);
+        //lv_obj_t* lbl_pos = lv_label_create(popup);
+        //lv_label_set_text(lbl_pos, "X:\n\nY:\n\nDir:");
+        //lv_obj_align(lbl_pos, LV_ALIGN_TOP_LEFT, 0, 0);
+        //lv_obj_set_style_text_color(lbl_pos, lv_color_white(), 0);
+        //static lv_style_t big_text;
+        //lv_style_init(&big_text);
+        //lv_style_set_text_font(&big_text, &lv_font_montserrat_20); // choose font size
+        //lv_obj_add_style(lbl_pos, &big_text, 0);
         // Start position update task
         //pros::Task pos_task(update_position_task, lbl_pos);
     }

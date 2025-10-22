@@ -42,12 +42,12 @@ struct Device {
 };
 
 std::vector<Device> robotMotors = {
-    {"Left Front Drive Motor", 15, true, true},
+    {"Left Front Drive Motor", 11, true, true},
     {"Left Middle Drive Motor", 13, true, true},
-    {"Left Back Drive Motor", 11, true, true},
+    {"Left Back Drive Motor", 15, true, true},
     {"Right Front Drive Motor", 16, true, true},
     {"Right Middle Drive Motor", 18, true, true},
-    {"Right back Drive Motor", 10, true, true},
+    {"Right back Drive Motor", 19, true, true},
     {"Intake Motor 1", 3, true},
     {"Intake Motor 2", 10, true},
     {"Intake Motor 3", 8, true}

@@ -1,7 +1,7 @@
 #include "robot/robot.hpp"
 pros::Controller controller(pros::E_CONTROLLER_MASTER); // Controller
 pros::MotorGroup rightMotors({16,18,-19}, pros::MotorGearset::blue); // left motor group
-pros::MotorGroup leftMotors({-15,-13,11}, pros::MotorGearset::blue); // right motor group
+pros::MotorGroup leftMotors({11,-13,-15}, pros::MotorGearset::blue); // right motor group
 pros::Imu imu(7); // Inertial Sensor
 pros::Rotation horizontalEnc(4); // Horizontal tracking wheel encoder.
 pros::Rotation verticalEnc(5); // Vertical tracking wheel encoder.
